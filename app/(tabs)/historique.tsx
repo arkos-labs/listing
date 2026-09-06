@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, Modal, StyleSheet, Text, TouchableOpacity, View, Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useCourses } from '@/context/CoursesContext';
@@ -18,7 +18,7 @@ function getEffectiveDomaine(c: Course): Domaine {
   return detectDomaine(c.lieuEnlevement ?? '', c.lieuLivraison ?? '');
 }
 
-/** MÃªme logique que lib/optimisation.ts â€” dÃ©rive le delta affichÃ© depuis les adresses */
+/** Même logique que lib/optimisation.ts — dérive le delta affiché depuis les adresses */
 function isParis(lieu: string): boolean {
   if (/\b75\d{3}\b/.test(lieu)) return true;
   if (/\bPARIS\b/i.test(lieu) && !/\b(9[1-5]|7[78])\d{3}\b/.test(lieu)) return true;
@@ -27,7 +27,7 @@ function isParis(lieu: string): boolean {
 function getOptimisationLabel(c: Course): string {
   if (!c.optimise) return '';
   const parisPareil = isParis(c.lieuEnlevement ?? '') && isParis(c.lieuLivraison ?? '');
-  return parisPareil ? 'âˆ’0.5 opt.' : 'âˆ’1.0 opt.';
+  return parisPareil ? '−0.5 opt.' : '−1.0 opt.';
 }
 
 function toYearMonth(d: Date): string {
@@ -48,7 +48,7 @@ export default function HistoryScreen() {
   const { colors } = useTheme();
   const [confirmDelete, setConfirmDelete] = useState<Course | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  // Seul le mois en cours est ouvert par dÃ©faut â€” les mois prÃ©cÃ©dents sont fermÃ©s
+  // Seul le mois en cours est ouvert par défaut — les mois précédents sont fermés
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([toYearMonth(new Date())]));
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   const [domaineFilter, setDomaineFilter] = useState<'all' | Domaine>('all');
@@ -67,7 +67,7 @@ export default function HistoryScreen() {
   const countCourse  = useMemo(() => courses.filter((c) => getEffectiveDomaine(c) === 'courseCourse').length, [courses]);
   const totalCa = useMemo(() => filteredCourses.reduce((s, c) => s + c.montantAchat, 0), [filteredCourses]);
 
-  // Map date ISO â†’ essence du jour (ex: "2026-07-31" â†’ 40)
+  // Map date ISO → essence du jour (ex: "2026-07-31" → 40)
   const fuelByDate = useMemo(() => {
     const m: Record<string, number> = {};
     for (const e of fuelExpenses) {
@@ -77,7 +77,7 @@ export default function HistoryScreen() {
     return m;
   }, [fuelExpenses]);
 
-  // Map yearMonth â†’ essence du mois (ex: "2026-07" â†’ 80)
+  // Map yearMonth → essence du mois (ex: "2026-07" → 80)
   const fuelByMonth = useMemo(() => {
     const m: Record<string, number> = {};
     for (const e of fuelExpenses) {
@@ -131,7 +131,7 @@ export default function HistoryScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Historique</Text>
           <Text style={styles.subtitle}>
-            {filteredCourses.length} course{filteredCourses.length > 1 ? 's' : ''} Â· {formatEuro(totalCa)}
+            {filteredCourses.length} course{filteredCourses.length > 1 ? 's' : ''} · {formatEuro(totalCa)}
           </Text>
         </View>
         {courses.length > 0 ? (
@@ -146,8 +146,8 @@ export default function HistoryScreen() {
         <View style={styles.filterRow}>
           {([
             { key: 'all', label: `Tout (${courses.length})` },
-            { key: 'courseCourse', label: `ðŸš´ Ã€ course (${countCourse})` },
-            { key: 'medical', label: `ðŸ¥ MÃ©dical (${countMedical})` },
+            { key: 'courseCourse', label: `🚴 À course (${countCourse})` },
+            { key: 'medical', label: `🏥 Médical (${countMedical})` },
           ] as const).map((f) => (
             <TouchableOpacity
               key={f.key}
@@ -162,13 +162,13 @@ export default function HistoryScreen() {
 
       {courses.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyIcon}>ðŸ“‹</Text>
+          <Text style={styles.emptyIcon}>📋</Text>
           <Text style={styles.emptyTitle}>Aucune course</Text>
           <Text style={styles.emptySub}>Ajoutez-en depuis l'onglet Saisie.</Text>
         </View>
       ) : filteredCourses.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>Aucune course dans cette catÃ©gorie.</Text>
+          <Text style={styles.emptyTitle}>Aucune course dans cette catégorie.</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
@@ -186,7 +186,7 @@ export default function HistoryScreen() {
                   onPress={() => toggleMonth(m.id)}
                   activeOpacity={0.85}
                 >
-                  {/* Titre + date clÃ´ture */}
+                  {/* Titre + date clôture */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: isLocked && closure && !isCollapsed ? 14 : 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {isLocked && <Lock size={14} color="rgba(255,255,255,0.9)" strokeWidth={2.5} />}
@@ -195,7 +195,7 @@ export default function HistoryScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {isLocked && closedAt && (
                         <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '600' }}>
-                          ClÃ´turÃ© le {closedAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          Clôturé le {closedAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </Text>
                       )}
                       {isCollapsed
@@ -204,14 +204,14 @@ export default function HistoryScreen() {
                     </View>
                   </View>
 
-                  {/* Panel dÃ©taillÃ© si verrouillÃ© */}
+                  {/* Panel détaillé si verrouillé */}
                   {isLocked && closure && !isCollapsed ? (
                     <View style={{ gap: 10, marginTop: 4 }}>
                       {/* CA + bons */}
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                         <View>
                           <Text style={{ fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -1 }}>{formatEuro(closure.ca)}</Text>
-                          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginTop: 2 }}>{formatQte(closure.bons)} bons Â· {closure.courses} course{closure.courses > 1 ? 's' : ''}</Text>
+                          <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginTop: 2 }}>{formatQte(closure.bons)} bons · {closure.courses} course{closure.courses > 1 ? 's' : ''}</Text>
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
                           <Text style={{ fontSize: 18, fontWeight: '900', color: closure.net >= 0 ? '#6EE7A0' : '#FCA5A5' }}>{formatEuro(closure.net)}</Text>
@@ -222,8 +222,8 @@ export default function HistoryScreen() {
                       {/* Grille stats */}
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         {[
-                          { icon: <Fuel size={12} color="rgba(255,255,255,0.8)" />, label: 'Essence', val: `âˆ’${formatEuro(closure.essence)}` },
-                          { icon: <Wrench size={12} color="rgba(255,255,255,0.8)" />, label: 'Moto', val: `âˆ’${formatEuro(closure.moto)}` },
+                          { icon: <Fuel size={12} color="rgba(255,255,255,0.8)" />, label: 'Essence', val: `−${formatEuro(closure.essence)}` },
+                          { icon: <Wrench size={12} color="rgba(255,255,255,0.8)" />, label: 'Moto', val: `−${formatEuro(closure.moto)}` },
                           { icon: <Clock size={12} color="rgba(255,255,255,0.8)" />, label: 'Travail', val: formatDuration(closure.heuresTravail ?? 0) },
                           { icon: <TrendingUp size={12} color="rgba(255,255,255,0.8)" />, label: 'Km', val: `${formatQte(closure.km ?? 0)} km` },
                         ].map((s) => (
@@ -244,18 +244,18 @@ export default function HistoryScreen() {
                       )}
                     </View>
                   ) : isLocked && closure && isCollapsed ? (
-                    <Text style={styles.monthSub}>{formatQte(closure.bons)} bons Â· Net {formatEuro(closure.net)}</Text>
+                    <Text style={styles.monthSub}>{formatQte(closure.bons)} bons · Net {formatEuro(closure.net)}</Text>
                   ) : !isLocked ? (
                     // Mois ouvert : afficher bons / brut / essence / net
                     isCollapsed ? (
-                      <Text style={styles.monthSub}>{formatQte(m.bons)} bon{m.bons > 1 ? 's' : ''} Â· {formatEuro(m.total)}{m.essence > 0 ? ` Â· Net ${formatEuro(m.total - m.essence)}` : ''}</Text>
+                      <Text style={styles.monthSub}>{formatQte(m.bons)} bon{m.bons > 1 ? 's' : ''} · {formatEuro(m.total)}{m.essence > 0 ? ` · Net ${formatEuro(m.total - m.essence)}` : ''}</Text>
                     ) : (
                       <View style={{ gap: 8, marginTop: 6 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                           <View>
                             <Text style={{ fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -0.8 }}>{formatEuro(m.total)}</Text>
                             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600', marginTop: 2 }}>
-                              {formatQte(m.bons)} bon{m.bons > 1 ? 's' : ''} Â· {filteredCourses.filter(c => toYearMonth(new Date(c.dateSaisie)) === m.yearMonth).length} course{filteredCourses.filter(c => toYearMonth(new Date(c.dateSaisie)) === m.yearMonth).length > 1 ? 's' : ''}
+                              {formatQte(m.bons)} bon{m.bons > 1 ? 's' : ''} · {filteredCourses.filter(c => toYearMonth(new Date(c.dateSaisie)) === m.yearMonth).length} course{filteredCourses.filter(c => toYearMonth(new Date(c.dateSaisie)) === m.yearMonth).length > 1 ? 's' : ''}
                             </Text>
                           </View>
                           {m.essence > 0 && (
@@ -269,7 +269,7 @@ export default function HistoryScreen() {
                           <View style={{ flexDirection: 'row', gap: 8 }}>
                             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 8, alignItems: 'center', gap: 2 }}>
                               <Fuel size={12} color="rgba(255,255,255,0.8)" />
-                              <Text style={{ fontSize: 13, fontWeight: '800', color: '#FCA5A5' }}>âˆ’{formatEuro(m.essence)}</Text>
+                              <Text style={{ fontSize: 13, fontWeight: '800', color: '#FCA5A5' }}>−{formatEuro(m.essence)}</Text>
                               <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.2 }}>Essence</Text>
                             </View>
                             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10, padding: 8, alignItems: 'center', gap: 2 }}>
@@ -300,12 +300,12 @@ export default function HistoryScreen() {
                               <Text style={styles.dayTitle}>{d.title}</Text>
                               <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
                                 <Text style={styles.daySub}>
-                                  {d.courses.length} course{d.courses.length > 1 ? 's' : ''} Â· {formatQte(d.bons)} bon{d.bons > 1 ? 's' : ''} Â· {formatEuro(d.total)}
+                                  {d.courses.length} course{d.courses.length > 1 ? 's' : ''} · {formatQte(d.bons)} bon{d.bons > 1 ? 's' : ''} · {formatEuro(d.total)}
                                 </Text>
                                 {d.essence > 0 && (
                                   <View style={styles.essenceBadge}>
                                     <Fuel size={10} color={colors.red} />
-                                    <Text style={[styles.essenceBadgeText, { color: colors.red }]}>âˆ’{formatEuro(d.essence)}</Text>
+                                    <Text style={[styles.essenceBadgeText, { color: colors.red }]}>−{formatEuro(d.essence)}</Text>
                                   </View>
                                 )}
                               </View>
@@ -345,7 +345,7 @@ export default function HistoryScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Supprimer cette course ?</Text>
-            <Text style={styles.modalBody}>{(confirmDelete?.lieuEnlevement || 'â€”') + ' â†’ ' + (confirmDelete?.lieuLivraison || 'â€”')}</Text>
+            <Text style={styles.modalBody}>{(confirmDelete?.lieuEnlevement || '—') + ' → ' + (confirmDelete?.lieuLivraison || '—')}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setConfirmDelete(null)}>
                 <Text style={styles.modalCancelText}>Annuler</Text>
@@ -363,7 +363,7 @@ export default function HistoryScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Vider tout l'historique ?</Text>
-            <Text style={styles.modalBody}>Les {courses.length} course{courses.length > 1 ? 's' : ''} seront supprimÃ©es dÃ©finitivement.</Text>
+            <Text style={styles.modalBody}>Les {courses.length} course{courses.length > 1 ? 's' : ''} seront supprimées définitivement.</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setConfirmClear(false)}>
                 <Text style={styles.modalCancelText}>Annuler</Text>
@@ -411,7 +411,7 @@ function Row({ course, locked, onDelete, onUpdate, colors }: { course: Course; l
           ...shadow as any,
         }}
       >
-        {/* Zone principale â€” tap pour changer domaine */}
+        {/* Zone principale — tap pour changer domaine */}
         <TouchableOpacity
           activeOpacity={locked ? 1 : 0.85}
           onPress={() => !locked && onUpdate(isMedical ? 'courseCourse' : 'medical')}
@@ -423,19 +423,19 @@ function Row({ course, locked, onDelete, onUpdate, colors }: { course: Course; l
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text }} numberOfLines={1}>
-              {course.lieuEnlevement || 'â€”'}
+              {course.lieuEnlevement || '—'}
             </Text>
             <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1, fontWeight: '500' }} numberOfLines={1}>
-              â†’ {course.lieuLivraison || 'â€”'}
+              → {course.lieuLivraison || '—'}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' }}>
               <View style={{ backgroundColor: accentSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 }}>
                 <Text style={{ fontSize: 9, fontWeight: '700', color: accent, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                  {isMedical ? 'MÃ©dical' : 'Ã€ course'}
+                  {isMedical ? 'Médical' : 'À course'}
                 </Text>
               </View>
               <Text style={{ fontSize: 11, color: colors.textFaint, fontWeight: '500' }}>
-                {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} Â· {formatQte(course.qteBon)} bon{course.qteBon > 1 ? 's' : ''}
+                {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · {formatQte(course.qteBon)} bon{course.qteBon > 1 ? 's' : ''}
               </Text>
               {course.optimise && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.amberSoft ?? '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 }}>
@@ -447,7 +447,7 @@ function Row({ course, locked, onDelete, onUpdate, colors }: { course: Course; l
           </View>
         </TouchableOpacity>
 
-        {/* Zone droite â€” montant + bouton suppression */}
+        {/* Zone droite — montant + bouton suppression */}
         <View style={{ alignItems: 'flex-end', gap: 6, paddingRight: 14, paddingLeft: 8 }}>
           <Text style={{ fontSize: 15, fontWeight: '800', color: accent }}>{formatEuro(course.montantAchat)}</Text>
           <TouchableOpacity
