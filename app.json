@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "CourseLog",
+    "slug": "courselog",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "themeColor": "#134024",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "shortName": "CourseLog",
+      "description": "Application de gestion des courses pour chauffeurs"
+    },
+    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
