@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   ScrollView, StyleSheet, Text, TouchableOpacity, View, TextInput,
 } from 'react-native';
@@ -32,7 +32,7 @@ export default function SimulateurScreen() {
   const [enlevopenAC, setEnlevOpenAC] = useState(false);
   const [livropenAC, setLivrOpenAC] = useState(false);
 
-  // Autocomplete enlèvement
+  // Autocomplete enlÃ¨vement
   const pickupOpts = useMemo<LocationOption[]>(
     () => suggestLocations(referenceCourses, 'lieuEnlevement', draftEnlev, 8),
     [referenceCourses, draftEnlev]
@@ -48,7 +48,7 @@ export default function SimulateurScreen() {
     [deliveryPool, draftLivr]
   );
 
-  // Chips véhicule pour la route en cours
+  // Chips vÃ©hicule pour la route en cours
   const routeVehicules = useMemo(
     () => draftEnlev.trim().length >= 3 && draftLivr.trim().length >= 3
       ? listVehiculesForRoute(referenceCourses, draftEnlev, draftLivr)
@@ -93,7 +93,7 @@ export default function SimulateurScreen() {
     setStep('list');
   };
 
-  // ── VUE : liste des courses + résultat ──────────────────────────────────
+  // â”€â”€ VUE : liste des courses + rÃ©sultat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (step === 'list') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -103,8 +103,8 @@ export default function SimulateurScreen() {
             <ArrowLeft size={20} color={colors.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Simulateur de tournée</Text>
-            <Text style={styles.subtitle}>Calcule ce que tu gagnes vraiment après optimisation</Text>
+            <Text style={styles.title}>Simulateur de tournÃ©e</Text>
+            <Text style={styles.subtitle}>Calcule ce que tu gagnes vraiment aprÃ¨s optimisation</Text>
           </View>
           {courses.length > 0 && (
             <TouchableOpacity style={styles.clearBtn} onPress={viderTout}>
@@ -113,10 +113,10 @@ export default function SimulateurScreen() {
           )}
         </View>
 
-        {/* Cours ajoutées */}
+        {/* Cours ajoutÃ©es */}
         {courses.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>Ajoute les courses de ton lot pour voir ce que tu vas gagner après optimisation.</Text>
+            <Text style={styles.emptyText}>Ajoute les courses de ton lot pour voir ce que tu vas gagner aprÃ¨s optimisation.</Text>
           </View>
         ) : (
           <View style={[styles.card, shadow as any]}>
@@ -131,22 +131,22 @@ export default function SimulateurScreen() {
               >
                 <View style={{ flex: 1, gap: 3 }}>
                   <View style={styles.adresseRow}>
-                    <Text style={styles.enlev} numberOfLines={1}>{c.lieuEnlevement || '—'}</Text>
+                    <Text style={styles.enlev} numberOfLines={1}>{c.lieuEnlevement || 'â€”'}</Text>
                     <ArrowRight size={11} color={colors.textFaint} />
-                    <Text style={styles.livr} numberOfLines={1}>{c.lieuLivraison || '—'}</Text>
+                    <Text style={styles.livr} numberOfLines={1}>{c.lieuLivraison || 'â€”'}</Text>
                   </View>
                   <View style={styles.bonsRow}>
                     {c.optimise ? (
                       <>
                         <AlertTriangle size={11} color={colors.amber ?? '#D97706'} />
                         <Text style={styles.bonsOptimise}>
-                          {formatQte(c.qteBonBase)} → <Text style={{ color: colors.amber ?? '#D97706', fontWeight: '800' }}>{formatQte(c.qteBonOptimise)} bons</Text>
+                          {formatQte(c.qteBonBase)} â†’ <Text style={{ color: colors.amber ?? '#D97706', fontWeight: '800' }}>{formatQte(c.qteBonOptimise)} bons</Text>
                           {'  '}
                           <Text style={styles.delta}>-0.5 optimisation</Text>
                         </Text>
                       </>
                     ) : (
-                      <Text style={styles.bonsNormal}>{formatQte(c.qteBonOptimise)} bons · {formatEuro(c.qteBonOptimise * prixBon)}</Text>
+                      <Text style={styles.bonsNormal}>{formatQte(c.qteBonOptimise)} bons Â· {formatEuro(c.qteBonOptimise * prixBon)}</Text>
                     )}
                   </View>
                   {c.vehicule ? <Text style={styles.vehiculeLabel}>{c.vehicule}</Text> : null}
@@ -165,24 +165,24 @@ export default function SimulateurScreen() {
           <Text style={styles.addBtnText}>Ajouter une course</Text>
         </TouchableOpacity>
 
-        {/* Résultat total */}
+        {/* RÃ©sultat total */}
         {courses.length > 0 && (
           <View style={[styles.resultatCard, shadow as any]}>
-            <Text style={styles.resultatTitle}>Résultat de la tournée</Text>
+            <Text style={styles.resultatTitle}>RÃ©sultat de la tournÃ©e</Text>
 
             <View style={styles.resultatRow}>
               <Text style={styles.resultatLabel}>Prix de base</Text>
-              <Text style={styles.resultatValue}>{formatQte(resultat.totalBonsBase)} bons · {formatEuro(resultat.totalMontantBase)}</Text>
+              <Text style={styles.resultatValue}>{formatQte(resultat.totalBonsBase)} bons Â· {formatEuro(resultat.totalMontantBase)}</Text>
             </View>
 
             {resultat.totalDelta < 0 && (
               <View style={[styles.resultatRow, styles.resultatRowPerdu]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <AlertTriangle size={13} color={colors.amber ?? '#D97706'} />
-                  <Text style={[styles.resultatLabel, { color: colors.amber ?? '#D97706' }]}>Optimisation déduite</Text>
+                  <Text style={[styles.resultatLabel, { color: colors.amber ?? '#D97706' }]}>Optimisation dÃ©duite</Text>
                 </View>
                 <Text style={[styles.resultatValue, { color: colors.amber ?? '#D97706' }]}>
-                  {formatQte(resultat.totalDelta)} bons · {formatEuro(resultat.totalMontantPerdu)}
+                  {formatQte(resultat.totalDelta)} bons Â· {formatEuro(resultat.totalMontantPerdu)}
                 </Text>
               </View>
             )}
@@ -203,7 +203,7 @@ export default function SimulateurScreen() {
     );
   }
 
-  // ── VUE : saisie enlèvement ──────────────────────────────────────────────
+  // â”€â”€ VUE : saisie enlÃ¨vement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (step === 'add-enlevement') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -211,7 +211,7 @@ export default function SimulateurScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => setStep('list')}>
             <ArrowLeft size={20} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.stepTitle}>Lieu d'enlèvement</Text>
+          <Text style={styles.stepTitle}>Lieu d'enlÃ¨vement</Text>
         </View>
 
         <TextInput
@@ -241,14 +241,14 @@ export default function SimulateurScreen() {
 
         {draftEnlev.trim().length >= 3 && (
           <TouchableOpacity style={styles.confirmBtn} onPress={() => setStep('add-livraison')}>
-            <Text style={styles.confirmBtnText}>Confirmer → Livraison</Text>
+            <Text style={styles.confirmBtnText}>Confirmer â†’ Livraison</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
     );
   }
 
-  // ── VUE : saisie livraison ───────────────────────────────────────────────
+  // â”€â”€ VUE : saisie livraison â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (step === 'add-livraison') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -288,14 +288,14 @@ export default function SimulateurScreen() {
 
         {draftLivr.trim().length >= 3 && (
           <TouchableOpacity style={styles.confirmBtn} onPress={() => setStep('add-vehicule')}>
-            <Text style={styles.confirmBtnText}>Confirmer → Type de course</Text>
+            <Text style={styles.confirmBtnText}>Confirmer â†’ Type de course</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
     );
   }
 
-  // ── VUE : sélection type de course ──────────────────────────────────────
+  // â”€â”€ VUE : sÃ©lection type de course â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (step === 'add-vehicule') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -322,7 +322,7 @@ export default function SimulateurScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.vehiculeRowLabel}>{rv.vehicule}</Text>
-                  <Text style={styles.vehiculeRowBons}>{formatQte(rv.qteBon)} bons · {formatEuro(rv.qteBon * prixBon)}</Text>
+                  <Text style={styles.vehiculeRowBons}>{formatQte(rv.qteBon)} bons Â· {formatEuro(rv.qteBon * prixBon)}</Text>
                 </View>
                 <ChevronRight size={16} color={colors.textFaint} />
               </TouchableOpacity>
@@ -333,7 +333,7 @@ export default function SimulateurScreen() {
             <Text style={styles.emptyText}>Pas de type connu pour ce trajet. Tape le nombre de bons manuellement.</Text>
             {[2, 2.5, 3, 3.5, 4, 4.5, 5].map(q => (
               <TouchableOpacity key={q} style={styles.manualQteBtn} onPress={() => addCourse('', q)}>
-                <Text style={styles.manualQteBtnText}>{formatQte(q)} bons · {formatEuro(q * prixBon)}</Text>
+                <Text style={styles.manualQteBtnText}>{formatQte(q)} bons Â· {formatEuro(q * prixBon)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -348,7 +348,7 @@ export default function SimulateurScreen() {
 function makeStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    scroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 36 },
+    scroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 120 },
 
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
     backBtn: {

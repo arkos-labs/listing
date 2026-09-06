@@ -440,10 +440,10 @@ function Dropdown({ options, onSelect, colors }: { options: LocationOption[]; on
 function makeStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    scroll: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 36 },
+    scroll: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 120 },
 
-    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 26, gap: 12 },
-    title: { fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.6 },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 12 },
+    title: { fontSize: 30, fontWeight: '900', color: colors.text, letterSpacing: -0.8 },
     subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 4, fontWeight: '500' },
 
     section: { marginBottom: 14 },
@@ -472,9 +472,9 @@ function makeStyles(colors: any, isDark: boolean) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.card,
-      borderRadius: 18,
+      borderRadius: 20,
       paddingHorizontal: 16,
-      paddingVertical: 13,
+      paddingVertical: 15,
       gap: 12,
       borderWidth: isDark ? 0 : 1,
       borderColor: colors.border,

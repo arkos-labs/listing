@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { FlatList, Modal, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useReference } from '@/context/ReferenceContext';
@@ -51,8 +51,8 @@ export default function BaseScreen() {
     const cc = referenceCourses.filter((c) => getEffectiveDomaine(c) === 'courseCourse');
     const med = referenceCourses.filter((c) => getEffectiveDomaine(c) === 'medical');
     const result = [];
-    if (cc.length > 0) result.push({ key: 'courseCourse', title: `🚴 Course à course`, count: cc.length, data: cc });
-    if (med.length > 0) result.push({ key: 'medical', title: `🏥 Médical`, count: med.length, data: med });
+    if (cc.length > 0) result.push({ key: 'courseCourse', title: `ðŸš´ Course Ã  course`, count: cc.length, data: cc });
+    if (med.length > 0) result.push({ key: 'medical', title: `ðŸ¥ MÃ©dical`, count: med.length, data: med });
     return result;
   }, [referenceCourses, domaineFilter, query]);
 
@@ -82,14 +82,14 @@ export default function BaseScreen() {
         }
       }
 
-      if (allInputs.length === 0) { setImportMsg('Aucune ligne exploitable trouvée.'); return; }
+      if (allInputs.length === 0) { setImportMsg('Aucune ligne exploitable trouvÃ©e.'); return; }
       // Construire le nom du/des fichier(s) pour l'admin
       const filename = res.assets.map((a) => a.name ?? 'fichier inconnu').join(', ');
       const firstUri = res.assets[0].uri;
       const n = await importFiles(allInputs, filename, firstUri);
-      setImportMsg(`${n} référence${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} (${res.assets.length} fichier${res.assets.length > 1 ? 's' : ''}).`);
+      setImportMsg(`${n} rÃ©fÃ©rence${n > 1 ? 's' : ''} ajoutÃ©e${n > 1 ? 's' : ''} (${res.assets.length} fichier${res.assets.length > 1 ? 's' : ''}).`);
     } catch (e) {
-      setImportMsg("Échec de l'import.");
+      setImportMsg("Ã‰chec de l'import.");
       console.error('[import]', e);
     } finally { setImporting(false); }
   };
@@ -98,7 +98,7 @@ export default function BaseScreen() {
     if (!editingRow || !editingRow.lieuEnlevement || !editingRow.lieuLivraison || (editingRow.qteBon || 0) <= 0) return;
     await importFiles([{ lieuEnlevement: editingRow.lieuEnlevement, lieuLivraison: editingRow.lieuLivraison, qteBon: editingRow.qteBon || 0, vehicule: canonicalizeVehicule(editingRow.vehicule) || undefined }]);
     setEditingRow(null);
-    setImportMsg('Référence ajoutée manuellement.');
+    setImportMsg('RÃ©fÃ©rence ajoutÃ©e manuellement.');
   };
 
   const renderItem = ({ item }: { item: ReferenceCourse }) => (
@@ -113,12 +113,12 @@ export default function BaseScreen() {
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Base</Text>
-          <Text style={styles.subtitle}>{referenceCourses.length} référence{referenceCourses.length > 1 ? 's' : ''}</Text>
+          <Text style={styles.subtitle}>{referenceCourses.length} rÃ©fÃ©rence{referenceCourses.length > 1 ? 's' : ''}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={styles.importBtn} onPress={pickAndImport} disabled={importing}>
             {importing ? <Loader2 size={14} color={colors.green} /> : <Upload size={14} color={colors.green} />}
-            <Text style={styles.importBtnText}>{importing ? 'Import…' : 'Importer'}</Text>
+            <Text style={styles.importBtnText}>{importing ? 'Importâ€¦' : 'Importer'}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.addBtn} onPress={() => setEditingRow({ lieuEnlevement: '', lieuLivraison: '', qteBon: 1, vehicule: '' })}>
             <Plus size={15} color="#fff" strokeWidth={2.5} />
@@ -141,7 +141,7 @@ export default function BaseScreen() {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Chercher enlèvement, livraison…"
+          placeholder="Chercher enlÃ¨vement, livraisonâ€¦"
           placeholderTextColor={colors.textFaint}
         />
         {query.length > 0 ? <TouchableOpacity onPress={() => setQuery('')}><X size={14} color={colors.textMuted} /></TouchableOpacity> : null}
@@ -151,10 +151,10 @@ export default function BaseScreen() {
       <View style={styles.filterRow}>
         {[
           { key: 'all', label: `Tout (${referenceCourses.length})` },
-          { key: 'courseCourse', label: `🚴 Course (${countCourse})` },
-          { key: 'medical', label: `🏥 Médical (${countMedical})` },
-          ...(countSuiveuse > 0 ? [{ key: 'suiveuse', label: `🏍 Suiveuse (${countSuiveuse})` }] : []),
-          ...(countNuit > 0 ? [{ key: 'nuit', label: `🌙 Nuit (${countNuit})` }] : []),
+          { key: 'courseCourse', label: `ðŸš´ Course (${countCourse})` },
+          { key: 'medical', label: `ðŸ¥ MÃ©dical (${countMedical})` },
+          ...(countSuiveuse > 0 ? [{ key: 'suiveuse', label: `ðŸ Suiveuse (${countSuiveuse})` }] : []),
+          ...(countNuit > 0 ? [{ key: 'nuit', label: `ðŸŒ™ Nuit (${countNuit})` }] : []),
         ].map((f) => (
           <TouchableOpacity key={f.key} style={[styles.filterChip, domaineFilter === f.key && styles.filterChipActive]} onPress={() => setDomaineFilter(f.key as any)}>
             <Text style={[styles.filterChipText, domaineFilter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
@@ -162,10 +162,10 @@ export default function BaseScreen() {
         ))}
       </View>
 
-      {/* Résultats recherche */}
+      {/* RÃ©sultats recherche */}
       {(query.trim() || domaineFilter !== 'all') ? (
         <View style={styles.resultBadge}>
-          <Text style={styles.resultBadgeText}>{filtered.length} résultat{filtered.length > 1 ? 's' : ''} · {formatQte(totalQte)} bon{totalQte > 1 ? 's' : ''}</Text>
+          <Text style={styles.resultBadgeText}>{filtered.length} rÃ©sultat{filtered.length > 1 ? 's' : ''} Â· {formatQte(totalQte)} bon{totalQte > 1 ? 's' : ''}</Text>
         </View>
       ) : null}
 
@@ -173,13 +173,13 @@ export default function BaseScreen() {
         <View style={styles.emptyWrap}>
           <View style={styles.emptyIconWrap}><Database size={32} color={colors.textFaint} /></View>
           <Text style={styles.emptyTitle}>Base vide</Text>
-          <Text style={styles.emptySub}>Importe un fichier .xls ou ajoute une référence.</Text>
+          <Text style={styles.emptySub}>Importe un fichier .xls ou ajoute une rÃ©fÃ©rence.</Text>
         </View>
       ) : sections ? (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
           stickySectionHeadersEnabled={false}
           renderSectionHeader={({ section }) => (
             <View style={styles.sectionHead}>
@@ -193,13 +193,13 @@ export default function BaseScreen() {
         />
       ) : filtered.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>Aucun résultat.</Text>
+          <Text style={styles.emptyTitle}>Aucun rÃ©sultat.</Text>
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 120 }}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={renderItem}
         />
@@ -211,14 +211,14 @@ export default function BaseScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Modal ajout/édition */}
+      {/* Modal ajout/Ã©dition */}
       <Modal transparent visible={editingRow !== null} animationType="fade" onRequestClose={() => setEditingRow(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Référence de course</Text>
+            <Text style={styles.modalTitle}>RÃ©fÃ©rence de course</Text>
             <View style={{ marginTop: 16, gap: 12 }}>
               {[
-                { label: 'Enlèvement', key: 'lieuEnlevement', placeholder: 'Ex. BICHAT' },
+                { label: 'EnlÃ¨vement', key: 'lieuEnlevement', placeholder: 'Ex. BICHAT' },
                 { label: 'Livraison', key: 'lieuLivraison', placeholder: 'Ex. KREMLIN BICETRE' },
               ].map(({ label, key, placeholder }) => (
                 <View key={key}>
@@ -260,23 +260,23 @@ function Row({ course, colors }: { course: ReferenceCourse; colors: any }) {
   const isNuit = canon === 'NUIT';
   const isMedical = !isSuiveuse && !isNuit && (course.domaine ?? detectDomaine(course.lieuEnlevement ?? '', course.lieuLivraison ?? '')) === 'medical';
 
-  // Suiveuse — rendu spécial
+  // Suiveuse â€” rendu spÃ©cial
   if (isSuiveuse) {
     return (
       <View style={[{ backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden' }, shadow as any]}>
         {/* Bandeau violet en haut */}
         <View style={{ backgroundColor: '#6D28D9', paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.5 }}>🏍 SUIVEUSE</Text>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', letterSpacing: 0.5 }}>ðŸ SUIVEUSE</Text>
           {course.dateCourse ? <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: '600', marginLeft: 'auto' }}>{course.dateCourse}</Text> : null}
         </View>
         {/* Trajet */}
         <View style={{ padding: 14, gap: 10 }}>
-          {/* Départ */}
+          {/* DÃ©part */}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#6D28D9', marginTop: 5 }} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6D28D9', textTransform: 'uppercase', letterSpacing: 0.5 }}>Départ</Text>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 1 }} numberOfLines={2}>{course.lieuEnlevement || '—'}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6D28D9', textTransform: 'uppercase', letterSpacing: 0.5 }}>DÃ©part</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 1 }} numberOfLines={2}>{course.lieuEnlevement || 'â€”'}</Text>
             </View>
           </View>
           {/* Ligne de connexion */}
@@ -286,12 +286,12 @@ function Row({ course, colors }: { course: ReferenceCourse; colors: any }) {
             </View>
             <View style={{ flex: 1 }} />
           </View>
-          {/* Arrivée */}
+          {/* ArrivÃ©e */}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
             <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: '#6D28D9', marginTop: 5 }} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6D28D9', textTransform: 'uppercase', letterSpacing: 0.5 }}>Arrivée</Text>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 1 }} numberOfLines={2}>{course.lieuLivraison || '—'}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#6D28D9', textTransform: 'uppercase', letterSpacing: 0.5 }}>ArrivÃ©e</Text>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 1 }} numberOfLines={2}>{course.lieuLivraison || 'â€”'}</Text>
             </View>
             <View style={{ backgroundColor: '#EDE9FE', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', minWidth: 52 }}>
               <Text style={{ fontSize: 17, fontWeight: '900', color: '#6D28D9' }}>{formatQte(course.qteBon)}</Text>
@@ -303,7 +303,7 @@ function Row({ course, colors }: { course: ReferenceCourse; colors: any }) {
     );
   }
 
-  // Nuit — bandeau bleu nuit
+  // Nuit â€” bandeau bleu nuit
   const accent = isNuit ? '#1E40AF' : isMedical ? (colors.amber ?? '#D97706') : colors.green;
   const accentSoft = isNuit ? '#DBEAFE' : isMedical ? (colors.amberSoft ?? '#FEF3C7') : colors.greenSoft;
   const initials = (course.lieuEnlevement || '?').slice(0, 2).toUpperCase();
@@ -311,13 +311,13 @@ function Row({ course, colors }: { course: ReferenceCourse; colors: any }) {
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 18, paddingVertical: 14, paddingRight: 14, paddingLeft: 14, borderLeftWidth: 4, borderLeftColor: accent }, shadow as any]}>
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 13, fontWeight: '900', color: accent }}>{isNuit ? '🌙' : initials}</Text>
+        <Text style={{ fontSize: 13, fontWeight: '900', color: accent }}>{isNuit ? 'ðŸŒ™' : initials}</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }} numberOfLines={2}>{course.lieuEnlevement || '—'}</Text>
-        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '500' }} numberOfLines={1}>→ {course.lieuLivraison || '—'}</Text>
+        <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }} numberOfLines={2}>{course.lieuEnlevement || 'â€”'}</Text>
+        <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '500' }} numberOfLines={1}>â†’ {course.lieuLivraison || 'â€”'}</Text>
         {course.dateCourse || course.vehicule ? (
-          <Text style={{ fontSize: 11, color: colors.textFaint, marginTop: 2, fontWeight: '600' }}>{[course.dateCourse, course.vehicule].filter(Boolean).join(' · ')}</Text>
+          <Text style={{ fontSize: 11, color: colors.textFaint, marginTop: 2, fontWeight: '600' }}>{[course.dateCourse, course.vehicule].filter(Boolean).join(' Â· ')}</Text>
         ) : null}
       </View>
       <View style={{ backgroundColor: accentSoft, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', minWidth: 52 }}>

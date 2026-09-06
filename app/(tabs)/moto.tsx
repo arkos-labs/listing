@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useMoto } from '@/context/MotoContext';
 import { useMaintenance } from '@/context/MaintenanceContext';
@@ -13,7 +13,7 @@ import { Plus, Trash2, Wrench, Check, Gauge, AlertTriangle } from 'lucide-react-
 const REMINDER_PRESETS = [
   { label: 'Vidange', intervalKm: 3000 },
   { label: 'Pneus', intervalKm: 8000 },
-  { label: 'Chaîne', intervalKm: 12000 },
+  { label: 'ChaÃ®ne', intervalKm: 12000 },
   { label: 'Plaquettes de frein', intervalKm: 10000 },
 ];
 
@@ -79,7 +79,7 @@ export default function MotoScreen() {
           {[
             { label: 'Jour', val: totals.jour },
             { label: 'Mois', val: totals.mois },
-            { label: 'Année', val: totals.annee },
+            { label: 'AnnÃ©e', val: totals.annee },
           ].map((s) => (
             <View key={s.label} style={styles.heroStatItem}>
               <Text style={styles.heroStatVal}>{formatEuro(s.val)}</Text>
@@ -153,14 +153,14 @@ export default function MotoScreen() {
         <Text style={styles.sectionSub}>{formatEuro(totalGeneral)}</Text>
       </View>
 
-      {/* Form dépense */}
+      {/* Form dÃ©pense */}
       <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Nouvelle dépense</Text>
+        <Text style={styles.formTitle}>Nouvelle dÃ©pense</Text>
         <TextInput
           style={styles.formInput}
           value={piece}
           onChangeText={setPiece}
-          placeholder="Pièce / prestation"
+          placeholder="PiÃ¨ce / prestation"
           placeholderTextColor={colors.textFaint}
         />
         <View style={styles.inputRow}>
@@ -169,7 +169,7 @@ export default function MotoScreen() {
             value={montant}
             onChangeText={setMontant}
             keyboardType="decimal-pad"
-            placeholder="Montant €"
+            placeholder="Montant â‚¬"
             placeholderTextColor={colors.textFaint}
             onSubmitEditing={submit}
             returnKeyType="done"
@@ -189,8 +189,8 @@ export default function MotoScreen() {
           <View style={styles.emptyIcon}>
             <Wrench size={24} color={colors.textFaint} />
           </View>
-          <Text style={styles.emptyTitle}>Aucune dépense</Text>
-          <Text style={styles.emptySub}>Ajoute une pièce ci-dessus.</Text>
+          <Text style={styles.emptyTitle}>Aucune dÃ©pense</Text>
+          <Text style={styles.emptySub}>Ajoute une piÃ¨ce ci-dessus.</Text>
         </View>
       ) : (
         <View style={{ gap: 10 }}>
@@ -271,7 +271,7 @@ function Row({ expense, onDelete, colors }: { expense: MotoExpense; onDelete: ()
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }} numberOfLines={1}>{expense.piece}</Text>
         <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '500' }}>
-          {d.toLocaleDateString('fr-FR')} · {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          {d.toLocaleDateString('fr-FR')} Â· {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
       <Text style={{ fontSize: 16, fontWeight: '900', color: colors.text }}>{formatEuro(expense.montant)}</Text>
@@ -285,7 +285,7 @@ function Row({ expense, onDelete, colors }: { expense: MotoExpense; onDelete: ()
 function makeStyles(colors: any) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 32 },
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 120 },
 
     hero: {
       backgroundColor: colors.heroBg ?? '#1A5C35',

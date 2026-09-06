@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Home, Pencil, History, Package, Settings } from 'lucide-react-native';
+import { Home, Pencil, History, Settings, Bike } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '@/context/ThemeContext';
 import { DriverNotifListener } from '@/components/DriverNotifListener';
@@ -46,21 +46,14 @@ function MotoIcon({ color, size = 20 }: { color: string; size?: number }) {
 function TabIcon({ Icon, focused }: { Icon: any; focused: boolean }) {
   const { colors } = useTheme();
   return (
-    <View
-      style={{
-        width: 44,
-        height: 28,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: focused ? colors.green : 'transparent',
-        marginTop: 4,
-      }}
-    >
+    <View style={[
+      tabIconStyles.wrap,
+      focused && { backgroundColor: colors.green },
+    ]}>
       <Icon
-        size={19}
+        size={20}
         color={focused ? '#fff' : colors.textFaint}
-        strokeWidth={focused ? 2.5 : 1.8}
+        strokeWidth={focused ? 2.4 : 1.7}
       />
     </View>
   );
@@ -69,21 +62,25 @@ function TabIcon({ Icon, focused }: { Icon: any; focused: boolean }) {
 function MotoTabIcon({ focused }: { focused: boolean }) {
   const { colors } = useTheme();
   return (
-    <View
-      style={{
-        width: 44,
-        height: 28,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: focused ? colors.green : 'transparent',
-        marginTop: 4,
-      }}
-    >
-      <MotoIcon color={focused ? '#fff' : colors.textFaint} size={20} />
+    <View style={[
+      tabIconStyles.wrap,
+      focused && { backgroundColor: colors.green },
+    ]}>
+      <MotoIcon color={focused ? '#fff' : colors.textFaint} size={21} />
     </View>
   );
 }
+
+const tabIconStyles = StyleSheet.create({
+  wrap: {
+    width: 48,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+});
 
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
@@ -93,23 +90,34 @@ export default function TabLayout() {
     tabBarActiveTintColor: colors.green,
     tabBarInactiveTintColor: colors.textFaint,
     tabBarStyle: {
+      position: 'absolute' as const,
+      bottom: Platform.OS === 'ios' ? 28 : 16,
+      left: 24,
+      right: 24,
+      height: 64,
+      borderRadius: 32,
       backgroundColor: colors.card,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-      paddingTop: 4,
+      borderTopWidth: 0,
+      paddingBottom: 0,
+      paddingTop: 0,
       shadowColor: '#000',
-      shadowOpacity: isDark ? 0.3 : 0.07,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: -3 },
-      elevation: 8,
+      shadowOpacity: isDark ? 0.45 : 0.14,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 16,
     },
     tabBarLabelStyle: {
       fontSize: 10,
       fontWeight: '600' as const,
-      marginTop: 2,
+      marginTop: 0,
     },
-    tabBarItemStyle: { paddingHorizontal: 0 },
+    tabBarItemStyle: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      height: 64,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
   }), [colors, isDark]);
 
   return (
@@ -149,7 +157,7 @@ export default function TabLayout() {
         name="moto"
         options={{
           title: 'Moto',
-          tabBarIcon: ({ focused }) => <MotoTabIcon focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon Icon={Bike} focused={focused} />,
         }}
       />
       <Tabs.Screen

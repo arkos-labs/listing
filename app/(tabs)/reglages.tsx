@@ -102,8 +102,8 @@ export default function ReglagesScreen() {
 
 function makeStyles(colors: any) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 18, paddingTop: 16 },
-    title: { fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.6 },
+    container: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 120 },
+    title: { fontSize: 30, fontWeight: '900', color: colors.text, letterSpacing: -0.8 },
     subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 4, marginBottom: 24, fontWeight: '500' },
     card: {
       backgroundColor: colors.card,
