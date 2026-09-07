@@ -29,9 +29,23 @@ import { normalizeLieu } from '@/lib/normalizeLieu';
  * par colonne: Enlèvement / Livraison / Qté / Achat) au cas où un fichier
  * serait exporté différemment.
  */
+/** Lit un fichier via XMLHttpRequest — compatible avec les URIs locaux iOS (file://) */
+function readFileAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', uri, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = () => {
+      if (xhr.status === 0 || xhr.status === 200) resolve(xhr.response);
+      else reject(new Error(`XHR status ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error('XHR error reading file'));
+    xhr.send();
+  });
+}
+
 export async function parseExcelFile(fileUri: string): Promise<ReferenceCourseInput[]> {
-  const response = await fetch(fileUri);
-  const buffer = await response.arrayBuffer();
+  const buffer = await readFileAsArrayBuffer(fileUri);
   const workbook = XLSX.read(buffer, { type: 'array' });
 
   const results: ReferenceCourseInput[] = [];

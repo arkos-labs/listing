@@ -127,8 +127,14 @@ export async function parsePdfFile(fileUri: string): Promise<ReferenceCourseInpu
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
   }
 
-  const response = await fetch(fileUri);
-  const arrayBuffer = await response.arrayBuffer();
+  const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', fileUri, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = () => { if (xhr.status === 0 || xhr.status === 200) resolve(xhr.response); else reject(new Error(`XHR ${xhr.status}`)); };
+    xhr.onerror = () => reject(new Error('XHR error'));
+    xhr.send();
+  });
   const uint8Array = new Uint8Array(arrayBuffer);
 
   const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
