@@ -47,6 +47,9 @@ export default function Root({ children }: PropsWithChildren) {
             -webkit-user-select: none;
             -webkit-touch-callout: none;
           }
+          * {
+            touch-action: pan-x pan-y !important;
+          }
           /* Prevent zoom on text inputs */
           input, textarea, select {
             font-size: 16px !important;
