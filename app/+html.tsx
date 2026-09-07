@@ -14,7 +14,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Disable zoom to make the app feel more native on mobile web */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"
         />
 
         {/* PWA: fait tourner l'app en plein écran (sans barre de navigateur) une fois ajoutée à l'écran d'accueil */}
@@ -65,9 +65,17 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Bloquer pinch-zoom
+              // Bloquer pinch-zoom (tous les touchmove)
               document.addEventListener('touchmove', function(e) {
-                if (e.touches && e.touches.length > 1) e.preventDefault();
+                if (e.touches && e.touches.length > 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }, { passive: false });
+
+              // Bloquer pinch-zoom au niveau du viewport (iOS 13+)
+              document.documentElement.addEventListener('touchmove', function(e) {
+                if (e.scale !== undefined && e.scale !== 1) e.preventDefault();
               }, { passive: false });
 
               // Bloquer double-tap zoom
