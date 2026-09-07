@@ -488,7 +488,7 @@ function makeStyles(colors: any, isDark: boolean) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    input: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '600', outlineWidth: 0, padding: 0 },
+    input: { flex: 1, fontSize: 16, color: colors.text, fontWeight: '600', outlineWidth: 0, padding: 0 },
 
     qteCard: {
       backgroundColor: colors.card,
