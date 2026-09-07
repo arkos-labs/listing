@@ -65,17 +65,20 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Bloquer pinch-zoom (tous les touchmove)
-              document.addEventListener('touchmove', function(e) {
+              // Bloquer pinch-zoom — intercept dès le touchstart à 2 doigts
+              document.addEventListener('touchstart', function(e) {
                 if (e.touches && e.touches.length > 1) {
                   e.preventDefault();
                   e.stopPropagation();
                 }
               }, { passive: false });
 
-              // Bloquer pinch-zoom au niveau du viewport (iOS 13+)
-              document.documentElement.addEventListener('touchmove', function(e) {
-                if (e.scale !== undefined && e.scale !== 1) e.preventDefault();
+              // Bloquer pinch-zoom en cours
+              document.addEventListener('touchmove', function(e) {
+                if (e.touches && e.touches.length > 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
               }, { passive: false });
 
               // Bloquer double-tap zoom
