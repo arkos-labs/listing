@@ -149,7 +149,7 @@ export default function DashboardScreen() {
           'application/octet-stream',
           'application/pdf',
         ],
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: false,
         multiple: true,
       });
       if (res.canceled || !res.assets || res.assets.length === 0) return;

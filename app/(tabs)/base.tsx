@@ -67,7 +67,7 @@ export default function BaseScreen() {
           'application/octet-stream',
           'application/pdf',
         ],
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: false,
         multiple: true,
       });
       if (res.canceled || !res.assets || res.assets.length === 0) { setImporting(false); return; }
