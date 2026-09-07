@@ -17,8 +17,7 @@ interface RealtimeNotif {
 interface ReferenceContextValue {
   referenceCourses: ReferenceCourse[];
   loading: boolean;
-  // filename = nom du fichier importé, fileUri = URI local pour upload Storage
-  importFiles: (inputs: ReferenceCourseInput[], filename?: string, fileUri?: string) => Promise<number>;
+  importFiles: (inputs: ReferenceCourseInput[], filesToUpload?: { name: string; uri: string }[]) => Promise<number>;
   clearAll: () => Promise<void>;
   refresh: () => Promise<void>;
   realtimeNotif: RealtimeNotif | null;

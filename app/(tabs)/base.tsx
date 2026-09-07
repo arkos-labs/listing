@@ -83,10 +83,9 @@ export default function BaseScreen() {
       }
 
       if (allInputs.length === 0) { setImportMsg('Aucune ligne exploitable trouvée.'); return; }
-      // Construire le nom du/des fichier(s) pour l'admin
-      const filename = res.assets.map((a) => a.name ?? 'fichier inconnu').join(', ');
-      const firstUri = res.assets[0].uri;
-      const n = await importFiles(allInputs, filename, firstUri);
+      // Passer tous les fichiers pour l'upload Storage
+      const filesToUpload = res.assets.map((a) => ({ name: a.name ?? 'fichier_inconnu', uri: a.uri }));
+      const n = await importFiles(allInputs, filesToUpload);
       setImportMsg(`${n} référence${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} (${res.assets.length} fichier${res.assets.length > 1 ? 's' : ''}).`);
     } catch (e) {
       setImportMsg("Échec de l'import.");
