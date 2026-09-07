@@ -73,22 +73,29 @@ export default function BaseScreen() {
       if (res.canceled || !res.assets || res.assets.length === 0) { setImporting(false); return; }
 
       let allInputs = [] as Awaited<ReturnType<typeof parseExcelFile>>;
+      let parseErrors = 0;
       for (const asset of res.assets) {
-        const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
-        if (isPdf) {
-          allInputs = allInputs.concat(await parsePdfFile(asset.uri));
-        } else {
-          allInputs = allInputs.concat(await parseExcelFile(asset.uri));
+        try {
+          const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
+          const rows = isPdf ? await parsePdfFile(asset.uri) : await parseExcelFile(asset.uri);
+          allInputs = allInputs.concat(rows);
+        } catch (fileErr) {
+          console.warn('[import] fichier ignoré:', asset.name, fileErr);
+          parseErrors++;
         }
       }
 
-      if (allInputs.length === 0) { setImportMsg('Aucune ligne exploitable trouvée.'); return; }
+      if (allInputs.length === 0) {
+        setImportMsg(parseErrors > 0 ? `Erreur de lecture (${parseErrors} fichier${parseErrors > 1 ? 's' : ''} invalide${parseErrors > 1 ? 's' : ''}).` : 'Aucune ligne exploitable trouvée.');
+        return;
+      }
       // Passer tous les fichiers pour l'upload Storage
       const filesToUpload = res.assets.map((a) => ({ name: a.name ?? 'fichier_inconnu', uri: a.uri }));
       const n = await importFiles(allInputs, filesToUpload);
-      setImportMsg(`${n} référence${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} (${res.assets.length} fichier${res.assets.length > 1 ? 's' : ''}).`);
-    } catch (e) {
-      setImportMsg("Échec de l'import.");
+      const errMsg = parseErrors > 0 ? ` (${parseErrors} fichier${parseErrors > 1 ? 's' : ''} ignoré${parseErrors > 1 ? 's' : ''})` : '';
+      setImportMsg(`${n} référence${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} (${res.assets.length - parseErrors} fichier${res.assets.length - parseErrors > 1 ? 's' : ''})${errMsg}.`);
+    } catch (e: any) {
+      setImportMsg(`Erreur : ${e?.message ?? String(e)}`);
       console.error('[import]', e);
     } finally { setImporting(false); }
   };
