@@ -37,17 +37,51 @@ export default function Root({ children }: PropsWithChildren) {
         */}
         <ScrollViewStyleReset />
 
-        {/* Script pour interdire le pinch-to-zoom sur iOS Safari */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          /* Bloquer TOUT zoom */
+          html {
+            touch-action: pan-x pan-y;
+            -ms-touch-action: pan-x pan-y;
+            overflow: hidden;
+          }
+          body {
+            touch-action: pan-x pan-y;
+            -ms-touch-action: pan-x pan-y;
+            overscroll-behavior: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+          }
+          * {
+            touch-action: pan-x pan-y;
+          }
+        `}} />
+
+        {/* Script global anti-zoom (pinch, double-tap, desktop scroll) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              document.addEventListener('gesturestart', function (e) {
-                e.preventDefault();
-              });
+              // Bloquer pinch-zoom
               document.addEventListener('touchmove', function(e) {
-                if (e.touches && e.touches.length > 1) {
-                  e.preventDefault();
-                }
+                if (e.touches && e.touches.length > 1) e.preventDefault();
+              }, { passive: false });
+
+              // Bloquer double-tap zoom
+              var lastTap = 0;
+              document.addEventListener('touchend', function(e) {
+                var now = Date.now();
+                if (now - lastTap < 300) e.preventDefault();
+                lastTap = now;
+              }, { passive: false });
+
+              // Bloquer gestures Safari
+              document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
+              document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
+              document.addEventListener('gestureend', function(e) { e.preventDefault(); });
+
+              // Bloquer wheel zoom (Ctrl+scroll sur desktop)
+              window.addEventListener('wheel', function(e) {
+                if (e.ctrlKey) e.preventDefault();
               }, { passive: false });
             `,
           }}
