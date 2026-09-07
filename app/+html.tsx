@@ -55,6 +55,10 @@ export default function Root({ children }: PropsWithChildren) {
           * {
             touch-action: pan-x pan-y;
           }
+          /* iOS Safari auto-zoom prevention: force 16px minimum on all inputs */
+          input, textarea, select {
+            font-size: 16px !important;
+          }
         `}} />
 
         {/* Script global anti-zoom (pinch, double-tap, desktop scroll) */}
