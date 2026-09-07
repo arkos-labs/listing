@@ -156,21 +156,28 @@ export default function DashboardScreen() {
 
       let allInputs: Awaited<ReturnType<typeof parseExcelFile>> = [];
       for (const asset of res.assets) {
-        const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
-        if (isPdf) {
-          allInputs = allInputs.concat(await parsePdfFile(asset.uri));
-        } else {
-          allInputs = allInputs.concat(await parseExcelFile(asset.uri));
+        try {
+          const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
+          const rows = isPdf ? await parsePdfFile(asset.uri) : await parseExcelFile(asset.uri);
+          allInputs = allInputs.concat(rows);
+        } catch (fileErr) {
+          console.warn('[import] fichier ignoré:', asset.name, fileErr);
         }
+      }
+
+      if (allInputs.length === 0) {
+        setImportMsg('❌ Aucune ligne exploitable trouvée');
+        setTimeout(() => setImportMsg(null), 4000);
+        return;
       }
 
       const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
       const inserted = await importFiles(allInputs, filesToUpload);
       setImportMsg(`✅ ${inserted} course${inserted > 1 ? 's' : ''} importée${inserted > 1 ? 's' : ''}`);
       setTimeout(() => setImportMsg(null), 4000);
-    } catch {
-      setImportMsg('❌ Erreur lors de l\'import');
-      setTimeout(() => setImportMsg(null), 4000);
+    } catch (e: any) {
+      setImportMsg(`❌ ${e?.message ?? String(e)}`);
+      setTimeout(() => setImportMsg(null), 6000);
     } finally {
       setImporting(false);
     }
