@@ -14,7 +14,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* Disable zoom to make the app feel more native on mobile web */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"
+          content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
 
         {/* PWA: fait tourner l'app en plein écran (sans barre de navigateur) une fois ajoutée à l'écran d'accueil */}
@@ -39,23 +39,15 @@ export default function Root({ children }: PropsWithChildren) {
 
         <style dangerouslySetInnerHTML={{ __html: `
           /* Bloquer TOUT zoom */
-          html {
+          html, body {
             touch-action: pan-x pan-y;
             -ms-touch-action: pan-x pan-y;
-            overflow: hidden;
-          }
-          body {
-            touch-action: pan-x pan-y;
-            -ms-touch-action: pan-x pan-y;
-            overscroll-behavior: none;
+            overscroll-behavior-y: none;
             user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
           }
-          * {
-            touch-action: pan-x pan-y;
-          }
-          /* iOS Safari auto-zoom prevention: force 16px minimum on all inputs */
+          /* Prevent zoom on text inputs */
           input, textarea, select {
             font-size: 16px !important;
           }
@@ -65,28 +57,49 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              function noZoom(e) {
+              // Block pinch to zoom
+              document.addEventListener('touchstart', function (e) {
                 if (e.touches && e.touches.length > 1) {
                   e.preventDefault();
-                  e.stopImmediatePropagation();
                 }
-              }
-              function noDblTap(e) {
-                var now = Date.now();
-                if (now - (window.__lastTap || 0) < 300) e.preventDefault();
-                window.__lastTap = now;
-              }
-              function noGesture(e) { e.preventDefault(); }
-              function noWheelZoom(e) { if (e.ctrlKey) e.preventDefault(); }
+              }, { passive: false, capture: true });
 
-              // Phase capture sur window = priorité absolue sur tous les autres listeners
-              window.addEventListener('touchstart',  noZoom,    { passive: false, capture: true });
-              window.addEventListener('touchmove',   noZoom,    { passive: false, capture: true });
-              window.addEventListener('touchend',    noDblTap,  { passive: false, capture: true });
-              window.addEventListener('gesturestart',noGesture, { passive: false, capture: true });
-              window.addEventListener('gesturechange',noGesture,{ passive: false, capture: true });
-              window.addEventListener('gestureend',  noGesture, { passive: false, capture: true });
-              window.addEventListener('wheel',       noWheelZoom,{ passive: false, capture: true });
+              document.addEventListener('touchmove', function (e) {
+                if (e.touches && e.touches.length > 1) {
+                  e.preventDefault();
+                }
+              }, { passive: false, capture: true });
+
+              // Block double tap to zoom
+              let lastTap = 0;
+              document.addEventListener('touchend', function (e) {
+                let currentTime = new Date().getTime();
+                let tapLength = currentTime - lastTap;
+                if (tapLength < 500 && tapLength > 0) {
+                  e.preventDefault();
+                }
+                lastTap = currentTime;
+              }, { passive: false, capture: true });
+
+              // Block gesture zooms (Safari)
+              document.addEventListener('gesturestart', function (e) {
+                e.preventDefault();
+              }, { passive: false, capture: true });
+              
+              document.addEventListener('gesturechange', function (e) {
+                e.preventDefault();
+              }, { passive: false, capture: true });
+              
+              document.addEventListener('gestureend', function (e) {
+                e.preventDefault();
+              }, { passive: false, capture: true });
+
+              // Block ctrl+scroll zoom on desktop
+              window.addEventListener('wheel', function (e) {
+                if (e.ctrlKey) {
+                  e.preventDefault();
+                }
+              }, { passive: false, capture: true });
             `,
           }}
         />
