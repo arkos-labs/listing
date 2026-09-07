@@ -65,39 +65,28 @@ export default function Root({ children }: PropsWithChildren) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Bloquer pinch-zoom — intercept dès le touchstart à 2 doigts
-              document.addEventListener('touchstart', function(e) {
+              function noZoom(e) {
                 if (e.touches && e.touches.length > 1) {
                   e.preventDefault();
-                  e.stopPropagation();
+                  e.stopImmediatePropagation();
                 }
-              }, { passive: false });
-
-              // Bloquer pinch-zoom en cours
-              document.addEventListener('touchmove', function(e) {
-                if (e.touches && e.touches.length > 1) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }
-              }, { passive: false });
-
-              // Bloquer double-tap zoom
-              var lastTap = 0;
-              document.addEventListener('touchend', function(e) {
+              }
+              function noDblTap(e) {
                 var now = Date.now();
-                if (now - lastTap < 300) e.preventDefault();
-                lastTap = now;
-              }, { passive: false });
+                if (now - (window.__lastTap || 0) < 300) e.preventDefault();
+                window.__lastTap = now;
+              }
+              function noGesture(e) { e.preventDefault(); }
+              function noWheelZoom(e) { if (e.ctrlKey) e.preventDefault(); }
 
-              // Bloquer gestures Safari
-              document.addEventListener('gesturestart', function(e) { e.preventDefault(); });
-              document.addEventListener('gesturechange', function(e) { e.preventDefault(); });
-              document.addEventListener('gestureend', function(e) { e.preventDefault(); });
-
-              // Bloquer wheel zoom (Ctrl+scroll sur desktop)
-              window.addEventListener('wheel', function(e) {
-                if (e.ctrlKey) e.preventDefault();
-              }, { passive: false });
+              // Phase capture sur window = priorité absolue sur tous les autres listeners
+              window.addEventListener('touchstart',  noZoom,    { passive: false, capture: true });
+              window.addEventListener('touchmove',   noZoom,    { passive: false, capture: true });
+              window.addEventListener('touchend',    noDblTap,  { passive: false, capture: true });
+              window.addEventListener('gesturestart',noGesture, { passive: false, capture: true });
+              window.addEventListener('gesturechange',noGesture,{ passive: false, capture: true });
+              window.addEventListener('gestureend',  noGesture, { passive: false, capture: true });
+              window.addEventListener('wheel',       noWheelZoom,{ passive: false, capture: true });
             `,
           }}
         />
