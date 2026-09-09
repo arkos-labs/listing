@@ -21,8 +21,14 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  // Sur le web, Supabase envoie le token dans le hash de l'URL
+  // Sur le web, Supabase envoie le token dans le hash — on l'intercepte
+  // sans créer de session complète pour éviter la redirection
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // On ne fait rien ici — on laisse l'utilisateur saisir son mot de passe
+      // La session recovery est gérée automatiquement par Supabase via le hash
+    });
+
     if (Platform.OS === 'web') {
       const hash = window.location.hash;
       const params = new URLSearchParams(hash.replace('#', ''));
@@ -32,6 +38,8 @@ export default function ResetPasswordScreen() {
         supabase.auth.setSession({ access_token, refresh_token });
       }
     }
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleReset = async () => {
