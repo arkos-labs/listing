@@ -52,9 +52,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
 
   const fetchConversations = async () => {
     const { data: msgs } = await supabase
-      .from('support_messages')
-      .select('user_id, content, sender, created_at, read_at')
-      .order('created_at', { ascending: false });
+      .rpc('get_all_support_messages');
 
     if (!msgs) { setLoading(false); return; }
 
@@ -97,12 +95,11 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   };
 
   const fetchMessages = async (userId: string) => {
-    const { data } = await supabase
-      .from('support_messages')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
-    setMessages(data ?? []);
+    const { data: all } = await supabase.rpc('get_all_support_messages');
+    const filtered = (all ?? [])
+      .filter((m: Message) => m.user_id === userId)
+      .sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    setMessages(filtered);
     await supabase
       .from('support_messages')
       .update({ read_at: new Date().toISOString() })
@@ -116,12 +113,20 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
     if (!text.trim() || !selected) return;
     const content = text.trim();
     setText('');
-    await supabase.from('support_messages').insert({
+    // Ajout optimiste
+    const tempMsg: Message = {
+      id: Date.now().toString(),
       user_id: selected.user_id,
       content,
       sender: 'admin',
+      created_at: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, tempMsg]);
+    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
+    await supabase.rpc('admin_send_message', {
+      p_user_id: selected.user_id,
+      p_content: content,
     });
-    fetchMessages(selected.user_id);
   };
 
   const s = styles(colors, isDark);
