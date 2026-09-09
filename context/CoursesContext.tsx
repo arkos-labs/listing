@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Course, CourseInput, DashboardKpi } from '@/types/course';
 import { computeKpi } from '@/lib/kpi';
 import { supabase } from '@/lib/supabase';
@@ -64,7 +64,7 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
   const add = useCallback(async (input: CourseInput) => {
     if (!user) return;
     const now = new Date().toISOString();
-    const { error: err } = await supabase.from('courses').insert({
+    const row = {
       driver_id: user.id,
       date_saisie: now,
       lieu_enlevement: input.lieuEnlevement,
@@ -76,10 +76,23 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
       optimise: input.optimise ?? false,
       month_year: toYearMonth(now),
       is_locked: false,
-    });
+    };
+    const { data, error: err } = await supabase.from('courses').insert(row).select('id').single();
     if (err) throw err;
-    await refresh();
-  }, [user, refresh]);
+    // Optimistic: ajouter localement sans re-fetch
+    const newCourse: Course = {
+      id: data.id,
+      dateSaisie: now,
+      lieuEnlevement: input.lieuEnlevement,
+      lieuLivraison: input.lieuLivraison,
+      qteBon: input.qteBon,
+      montantAchat: input.montantAchat,
+      vehicule: input.vehicule,
+      domaine: input.domaine,
+      optimise: input.optimise ?? false,
+    };
+    setCourses((prev) => [newCourse, ...prev]);
+  }, [user]);
 
   const importMany = useCallback(async (inputs: CourseInput[]) => {
     if (!user || inputs.length === 0) return 0;
@@ -99,18 +112,33 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
     }));
     const { data, error: err } = await supabase.from('courses').insert(rows).select('id');
     if (err) throw err;
-    await refresh();
+    // Optimistic: ajouter localement sans re-fetch
+    const newCourses: Course[] = inputs.map((input, i) => ({
+      id: data![i].id,
+      dateSaisie: now,
+      lieuEnlevement: input.lieuEnlevement,
+      lieuLivraison: input.lieuLivraison,
+      qteBon: input.qteBon,
+      montantAchat: input.montantAchat,
+      vehicule: input.vehicule,
+      domaine: input.domaine,
+      optimise: false,
+    }));
+    setCourses((prev) => [...newCourses, ...prev]);
     return data?.length ?? 0;
-  }, [user, refresh]);
+  }, [user]);
 
   const remove = useCallback(async (id: string) => {
     if (!user) return;
+    // Optimistic: supprimer localement immédiatement
+    setCourses((prev) => prev.filter((c) => c.id !== id));
     await supabase.from('courses').delete().eq('id', id).eq('driver_id', user.id);
-    await refresh();
-  }, [user, refresh]);
+  }, [user]);
 
   const update = useCallback(async (id: string, updates: Partial<Course>) => {
     if (!user) return;
+    // Optimistic: mettre à jour localement immédiatement
+    setCourses((prev) => prev.map((c) => c.id === id ? { ...c, ...updates } : c));
     const patch: Record<string, unknown> = {};
     if (updates.lieuEnlevement !== undefined) patch.lieu_enlevement = updates.lieuEnlevement;
     if (updates.lieuLivraison !== undefined) patch.lieu_livraison = updates.lieuLivraison;
@@ -119,16 +147,16 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
     if (updates.vehicule !== undefined) patch.vehicule = updates.vehicule;
     if (updates.domaine !== undefined) patch.domaine = updates.domaine;
     await supabase.from('courses').update(patch).eq('id', id).eq('driver_id', user.id);
-    await refresh();
-  }, [user, refresh]);
+  }, [user]);
 
   const clearAll = useCallback(async () => {
     if (!user) return;
     await supabase.from('courses').delete().eq('driver_id', user.id).eq('is_locked', false);
+    // Après clearAll, on fait un vrai refresh car on ne sait pas quelles courses sont locked
     await refresh();
   }, [user, refresh]);
 
-  const kpi = computeKpi(courses);
+  const kpi = useMemo(() => computeKpi(courses), [courses]);
 
   return (
     <CoursesContext.Provider value={{ courses, kpi, loading, error, add, importMany, remove, update, clearAll, refresh }}>

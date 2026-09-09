@@ -13,6 +13,7 @@ import { ClosuresProvider } from '@/context/ClosuresContext';
 import { GoalProvider } from '@/context/GoalContext';
 import { SyncProvider } from '@/context/SyncContext';
 import { WorkProvider } from '@/context/WorkContext';
+import { FavorisProvider } from '@/context/FavorisContext';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -80,7 +81,9 @@ export default function RootLayout() {
                       <GoalProvider>
                         <SyncProvider>
                           <WorkProvider>
-                            <Stack screenOptions={{ headerShown: false }} />
+                            <FavorisProvider>
+                              <Stack screenOptions={{ headerShown: false }} />
+                            </FavorisProvider>
                           </WorkProvider>
                         </SyncProvider>
                       </GoalProvider>

@@ -8,6 +8,12 @@ export function matchByPickup(courses: ReferenceCourse[], query: string): Refere
   return courses.filter((c) => includesNormalized(c.lieuEnlevement, query));
 }
 
+/** Toutes les lignes de la base dont le lieu de livraison correspond à `query`. */
+export function matchByDelivery(courses: ReferenceCourse[], query: string): ReferenceCourse[] {
+  if (!query.trim()) return [];
+  return courses.filter((c) => includesNormalized(c.lieuLivraison, query));
+}
+
 // Les fichiers importés ont plein de variantes du même type de course
 // ("EXPRESS 2R", "2 ROUES EXPRESS A/R"...). On compare toujours après les
 // avoir ramenées à l'une des 4 catégories réelles (voir lib/vehicule.ts).
@@ -200,6 +206,47 @@ export function listVehiculesForRoute(
 
   // Trier par nombre de bons croissant (course la moins chère d'abord)
   return result.sort((a, b) => a.qteBon - b.qteBon);
+}
+
+export interface BidirectionalMatch extends ExactMatch {
+  /** true si le match trouvé est dans le sens inverse (livraison→enlèvement) */
+  reversed: boolean;
+}
+
+/**
+ * Comme `resolveQte` mais cherche dans les deux sens :
+ * d'abord A→B, puis B→A si aucun résultat.
+ * Utile quand l'utilisateur saisit la livraison en premier.
+ */
+export function resolveQteBidirectional(
+  courses: ReferenceCourse[],
+  lieuEnlevement: string,
+  lieuLivraison: string,
+  vehicule?: string
+): BidirectionalMatch | null {
+  const direct = resolveQte(courses, lieuEnlevement, lieuLivraison, vehicule);
+  if (direct) return { ...direct, reversed: false };
+
+  // Essai dans le sens inverse (B→A)
+  const reversed = resolveQte(courses, lieuLivraison, lieuEnlevement, vehicule);
+  if (reversed) return { ...reversed, reversed: true };
+
+  return null;
+}
+
+/**
+ * Types de course disponibles pour un trajet, en cherchant dans les deux sens.
+ */
+export function listVehiculesForRouteBidirectional(
+  courses: ReferenceCourse[],
+  lieuEnlevement: string,
+  lieuLivraison: string
+): { options: RouteVehiculeOption[]; reversed: boolean } {
+  const direct = listVehiculesForRoute(courses, lieuEnlevement, lieuLivraison);
+  if (direct.length > 0) return { options: direct, reversed: false };
+
+  const reversed = listVehiculesForRoute(courses, lieuLivraison, lieuEnlevement);
+  return { options: reversed, reversed: reversed.length > 0 };
 }
 
 export interface LocationOption {

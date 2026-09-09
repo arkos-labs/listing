@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState, forwardRef, ForwardedRef } from '
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCourses } from '@/context/CoursesContext';
+import { useFavoris } from '@/context/FavorisContext';
 import { useReference } from '@/context/ReferenceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useGoal } from '@/context/GoalContext';
 import {
   suggestLocations,
   matchByPickup,
-  resolveQte,
-  listVehiculesForRoute,
+  matchByDelivery,
+  resolveQteBidirectional,
+  listVehiculesForRouteBidirectional,
   LocationOption,
   RouteVehiculeOption,
 } from '@/lib/reference';
@@ -19,12 +21,13 @@ import { SimulateurCourse, calculerTournee } from '@/lib/optimisation';
 import { radius, shadow, shadowMd } from '@/lib/theme';
 import { detectDomaine } from '@/lib/domaine';
 import type { CourseInput } from '@/types/course';
-import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X } from 'lucide-react-native';
+import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star } from 'lucide-react-native';
 
 const PRESETS = [1, 2, 2.5, 3, 5, 8];
 
 export default function SaisieScreen() {
   const { add } = useCourses();
+  const { favoris, toggle: toggleFavori, isFavori } = useFavoris();
   const { referenceCourses } = useReference();
   const { colors } = useTheme();
   const { prixBon } = useGoal();
@@ -54,11 +57,18 @@ export default function SaisieScreen() {
   const { isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 
-  const pickupOptions = useMemo<LocationOption[]>(
-    () => suggestLocations(referenceCourses, 'lieuEnlevement', form.lieuEnlevement),
-    [referenceCourses, form.lieuEnlevement]
+  // Pool pour enlèvement : si livraison renseignée → filtré par livraison, sinon tout
+  const pickupPool = useMemo(
+    () => (form.lieuLivraison.trim().length >= 2 ? matchByDelivery(referenceCourses, form.lieuLivraison) : referenceCourses),
+    [referenceCourses, form.lieuLivraison]
   );
 
+  const pickupOptions = useMemo<LocationOption[]>(
+    () => suggestLocations(pickupPool, 'lieuEnlevement', form.lieuEnlevement),
+    [pickupPool, form.lieuEnlevement]
+  );
+
+  // Pool pour livraison : si enlèvement renseigné → filtré par enlèvement, sinon tout
   const deliveryPool = useMemo(
     () => (form.lieuEnlevement.trim().length >= 2 ? matchByPickup(referenceCourses, form.lieuEnlevement) : referenceCourses),
     [referenceCourses, form.lieuEnlevement]
@@ -69,11 +79,14 @@ export default function SaisieScreen() {
     [deliveryPool, form.lieuLivraison]
   );
 
-  // Types de course disponibles pour ce trajet précis (enlèvement + livraison)
-  const routeVehicules = useMemo<RouteVehiculeOption[]>(() => {
-    if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return [];
-    return listVehiculesForRoute(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
+  // Types de course disponibles — cherche dans les deux sens (A→B puis B→A)
+  const routeVehiculesResult = useMemo(() => {
+    if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return null;
+    return listVehiculesForRouteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison]);
+
+  const routeVehicules = routeVehiculesResult?.options ?? [];
+  const routeReversed = routeVehiculesResult?.reversed ?? false;
 
   // Calcul de l'optimisation sur le lot complet (courses validées + course en cours)
   const lotComplet = useMemo<SimulateurCourse[]>(() => {
@@ -128,6 +141,27 @@ export default function SaisieScreen() {
     return [...seen.values()].sort((a, b) => b.count - a.count);
   }, [referenceCourses, form.vehicule]);
 
+  // ── Favoris ──
+  const isCurrentFavori = useMemo(
+    () => form.lieuEnlevement.trim().length >= 3 && form.lieuLivraison.trim().length >= 3
+      ? isFavori(form.lieuEnlevement, form.lieuLivraison, form.vehicule)
+      : false,
+    [isFavori, form.lieuEnlevement, form.lieuLivraison, form.vehicule]
+  );
+
+  const applyFavori = (f: { lieuEnlevement: string; lieuLivraison: string; vehicule?: string; qteBon: number }) => {
+    const montant = computeMontant(f.qteBon, prixBon);
+    setForm((prev) => ({
+      ...prev,
+      lieuEnlevement: f.lieuEnlevement,
+      lieuLivraison: f.lieuLivraison,
+      vehicule: f.vehicule ?? '',
+      qteBon: f.qteBon,
+      montantAchat: montant,
+    }));
+    setAutoFromBase(true);
+  };
+
   const applySuiveuse = (s: { lieuEnlevement: string; lieuLivraison: string; qteBon: number }) => {
     const montant = computeMontant(s.qteBon, prixBon);
     setForm(f => ({ ...f, lieuEnlevement: s.lieuEnlevement, lieuLivraison: s.lieuLivraison, qteBon: s.qteBon, montantAchat: montant }));
@@ -136,10 +170,10 @@ export default function SaisieScreen() {
 
   const exactMatch = useMemo(() => {
     if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return null;
-    return resolveQte(referenceCourses, form.lieuEnlevement, form.lieuLivraison, form.vehicule);
+    return resolveQteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison, form.vehicule);
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison, form.vehicule]);
 
-  const exactMatchKey = exactMatch ? `${exactMatch.qteBon}|${exactMatch.ambiguous}` : '';
+  const exactMatchKey = exactMatch ? `${exactMatch.qteBon}|${exactMatch.ambiguous}|${exactMatch.reversed}` : '';
 
   useEffect(() => {
     if (!exactMatch) { if (autoFromBase) { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: 0 })); } return; }
@@ -200,6 +234,37 @@ export default function SaisieScreen() {
         </View>
       </View>
 
+      {/* ── Favoris ── */}
+      {favoris.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+          style={{ marginBottom: 16, marginHorizontal: -20, paddingHorizontal: 20 }}
+        >
+          {favoris.map((f) => (
+            <TouchableOpacity
+              key={f.id}
+              style={[
+                styles.favoriChip,
+                form.lieuEnlevement === f.lieuEnlevement && form.lieuLivraison === f.lieuLivraison && styles.favoriChipActive,
+              ]}
+              onPress={() => applyFavori(f)}
+              onLongPress={() => toggleFavori(f)}
+            >
+              <Star size={10} color={colors.amber ?? '#D97706'} fill={colors.amber ?? '#D97706'} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.favoriEnlev} numberOfLines={1}>{f.lieuEnlevement}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <ArrowRight size={8} color={colors.textFaint} />
+                  <Text style={styles.favoriLivr} numberOfLines={1}>{f.lieuLivraison}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* ── Picker suiveuse ── */}
       {form.vehicule === 'SUIVEUSE' && suiveuseCourses.length > 0 && (
         <View style={[styles.suiveusePicker, shadow]}>
@@ -258,7 +323,27 @@ export default function SaisieScreen() {
 
       {/* Livraison */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Livraison</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Livraison</Text>
+          {form.lieuEnlevement.trim().length >= 3 && form.lieuLivraison.trim().length >= 3 && (
+            <TouchableOpacity
+              onPress={() => toggleFavori({
+                lieuEnlevement: form.lieuEnlevement,
+                lieuLivraison: form.lieuLivraison,
+                vehicule: form.vehicule || undefined,
+                qteBon: form.qteBon,
+              })}
+              style={{ padding: 4 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Star
+                size={16}
+                color={isCurrentFavori ? (colors.amber ?? '#D97706') : colors.textFaint}
+                fill={isCurrentFavori ? (colors.amber ?? '#D97706') : 'transparent'}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={[styles.inputCard, shadow]}>
           <View style={styles.inputIconWrap}>
             <Navigation size={16} color={colors.amber ?? '#D97706'} />
@@ -290,7 +375,15 @@ export default function SaisieScreen() {
       {/* Types de course disponibles pour ce trajet */}
       {routeVehicules.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Type de course</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+            <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Type de course</Text>
+            {routeReversed && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.amber ? `${colors.amber}22` : '#FEF3C722', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <ArrowLeftRight size={10} color={colors.amber ?? '#D97706'} />
+                <Text style={{ fontSize: 9, fontWeight: '700', color: colors.amber ?? '#D97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>sens inverse</Text>
+              </View>
+            )}
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {routeVehicules.map((rv) => (
               <TouchableOpacity
@@ -354,8 +447,13 @@ export default function SaisieScreen() {
               <Text style={styles.stepperSub}>dont {formatQte(form.qteBon)} cette course</Text>
             ) : autoFromBase ? (
               <View style={styles.autoHint}>
-                <Sparkles size={10} color={colors.green} />
-                <Text style={styles.autoHintText}>{exactMatch?.ambiguous ? 'Valeur la plus fréquente' : 'Depuis la base'}</Text>
+                {exactMatch?.reversed
+                  ? <ArrowLeftRight size={10} color={colors.amber ?? '#D97706'} />
+                  : <Sparkles size={10} color={colors.green} />
+                }
+                <Text style={[styles.autoHintText, exactMatch?.reversed && { color: colors.amber ?? '#D97706' }]}>
+                  {exactMatch?.ambiguous ? 'Valeur la plus fréquente' : exactMatch?.reversed ? 'Sens inverse trouvé' : 'Depuis la base'}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -628,6 +726,35 @@ function makeStyles(colors: any, isDark: boolean) {
       width: 48, height: 48, borderRadius: 24,
       backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center',
       shadowColor: colors.green, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    },
+
+    favoriChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      maxWidth: 160,
+      ...shadow as any,
+    },
+    favoriChipActive: {
+      borderColor: colors.amber ?? '#D97706',
+      backgroundColor: isDark ? '#2D250D' : '#FFFBEB',
+    },
+    favoriEnlev: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    favoriLivr: {
+      fontSize: 10,
+      fontWeight: '500',
+      color: colors.textMuted,
+      flexShrink: 1,
     },
 
     submitBtn: {

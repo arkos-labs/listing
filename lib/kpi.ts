@@ -1,19 +1,13 @@
 import type { Course, DashboardKpi } from '@/types/course';
 
-function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function isSameMonth(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
 
 export function computeKpi(courses: Course[]): DashboardKpi {
   const now = new Date();
+  const y = now.getFullYear(), mo = now.getMonth(), day = now.getDate();
+  // Préfixe YYYY-MM-DD et YYYY-MM pour comparaison rapide sans instancier Date
+  const todayPrefix = `${y}-${String(mo + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const monthPrefix = todayPrefix.slice(0, 7); // "YYYY-MM"
+
   let coursesJour = 0;
   let caJour = 0;
   let caMois = 0;
@@ -21,14 +15,16 @@ export function computeKpi(courses: Course[]): DashboardKpi {
   let bonsMois = 0;
 
   for (const c of courses) {
-    const d = new Date(c.dateSaisie);
+    const iso = c.dateSaisie; // "2026-07-15T..."
     const ca = c.montantAchat;
-    if (isSameDay(d, now)) {
+    const isToday = iso.startsWith(todayPrefix);
+    const isMonth = isToday || iso.startsWith(monthPrefix);
+    if (isToday) {
       coursesJour += 1;
       caJour += ca;
       bonsJour += c.qteBon;
     }
-    if (isSameMonth(d, now)) {
+    if (isMonth) {
       caMois += ca;
       bonsMois += c.qteBon;
     }
@@ -48,12 +44,14 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+const _euroFmt = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
+});
+
 export function formatEuro(n: number): string {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+  return _euroFmt.format(n);
 }
 
 /** Affiche une quantité de bons à la française (virgule), sans décimales inutiles. */
