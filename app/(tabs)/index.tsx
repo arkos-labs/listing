@@ -40,19 +40,21 @@ export default function DashboardScreen() {
   const { prenom, user } = useAuth();
   const [unreadMsgs, setUnreadMsgs] = useState<{ prenom: string; content: string }[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const userEmailRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const email = data.user?.email ?? null;
       setUserEmail(email);
+      userEmailRef.current = email;
       checkUnread(email);
     });
 
-    // Écoute temps réel des nouveaux messages
+    // Écoute temps réel — utilise le ref pour avoir l'email à jour
     const channel = supabase
       .channel('home_notif')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
-        supabase.auth.getUser().then(({ data }) => checkUnread(data.user?.email ?? null));
+        checkUnread(userEmailRef.current);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };

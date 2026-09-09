@@ -65,11 +65,9 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   }, [selected]);
 
   const fetchConversations = async () => {
-    // Tous les utilisateurs inscrits
+    // Tous les utilisateurs inscrits (bypass RLS via fonction)
     const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, prenom, email')
-      .order('prenom', { ascending: true });
+      .rpc('get_all_profiles');
 
     // Tous les messages
     const { data: msgs } = await supabase
