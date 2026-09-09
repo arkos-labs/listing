@@ -97,12 +97,14 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       unread: msgMap.get(p.id)?.unread ?? 0,
     }));
 
-    // Trier : non lus en premier, puis par date, puis alphabétique
+    // Trier : non lus en premier → avec messages (par date récente) → sans message
     convs.sort((a, b) => {
+      const aHasMsg = !!a.last_at;
+      const bHasMsg = !!b.last_at;
       if (b.unread !== a.unread) return b.unread - a.unread;
-      if (a.last_at && b.last_at) return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
-      if (a.last_at) return -1;
-      if (b.last_at) return 1;
+      if (aHasMsg && bHasMsg) return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
+      if (aHasMsg) return -1;
+      if (bHasMsg) return 1;
       return a.prenom.localeCompare(b.prenom);
     });
 
@@ -211,38 +213,65 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
           <Text style={s.emptyText}>Aucun message pour le moment</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 100 }}>
-          {conversations.map(conv => (
+        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+          {/* Conversations actives */}
+          {conversations.filter(c => c.last_at).length > 0 && (
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textFaint, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, letterSpacing: 0.5 }}>
+              CONVERSATIONS
+            </Text>
+          )}
+          {conversations.filter(c => c.last_at).map(conv => (
             <TouchableOpacity
               key={conv.user_id}
               style={[s.convCard, conv.unread > 0 && { borderLeftWidth: 3, borderLeftColor: '#1A6137' }]}
               onPress={() => { setSelected(conv); fetchMessages(conv.user_id); }}
             >
-              <View style={[s.convAvatar, { backgroundColor: conv.unread > 0 ? '#1A6137' : '#6b7280' }]}>
+              <View style={[s.convAvatar, { backgroundColor: conv.unread > 0 ? '#1A6137' : '#4b5563' }]}>
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>
                   {conv.prenom[0]?.toUpperCase()}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[s.convName, conv.unread > 0 && { color: '#1A6137' }]}>{conv.prenom}</Text>
-                <Text style={{ fontSize: 11, color: colors.textFaint, fontWeight: '500' }}>{conv.email}</Text>
-                {conv.last_message ? (
-                  <Text style={s.convLast} numberOfLines={1}>{conv.last_message}</Text>
-                ) : (
-                  <Text style={{ fontSize: 12, color: colors.textFaint, fontStyle: 'italic' }}>Aucun message</Text>
-                )}
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                {conv.last_at ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[s.convName, conv.unread > 0 && { color: '#1A6137' }]}>{conv.prenom}</Text>
                   <Text style={s.convTime}>
                     {new Date(conv.last_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
-                ) : null}
-                {conv.unread > 0 && (
-                  <View style={s.badge}>
-                    <Text style={s.badgeText}>{conv.unread}</Text>
-                  </View>
-                )}
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+                  <Text style={[s.convLast, conv.unread > 0 && { fontWeight: '700', color: colors.text }]} numberOfLines={1}>
+                    {conv.last_message}
+                  </Text>
+                  {conv.unread > 0 && (
+                    <View style={s.badge}>
+                      <Text style={s.badgeText}>{conv.unread}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {/* Utilisateurs sans message */}
+          {conversations.filter(c => !c.last_at).length > 0 && (
+            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textFaint, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6, letterSpacing: 0.5 }}>
+              TOUS LES CHAUFFEURS
+            </Text>
+          )}
+          {conversations.filter(c => !c.last_at).map(conv => (
+            <TouchableOpacity
+              key={conv.user_id}
+              style={s.convCard}
+              onPress={() => { setSelected(conv); fetchMessages(conv.user_id); }}
+            >
+              <View style={[s.convAvatar, { backgroundColor: '#9ca3af' }]}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>
+                  {conv.prenom[0]?.toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.convName}>{conv.prenom}</Text>
+                <Text style={{ fontSize: 12, color: colors.textFaint, fontStyle: 'italic', marginTop: 2 }}>Aucun message — Envoyer le premier</Text>
               </View>
             </TouchableOpacity>
           ))}
