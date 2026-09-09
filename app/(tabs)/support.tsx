@@ -433,7 +433,7 @@ const styles = (colors: any, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: isDark ? colors.bg : '#F0F4F0' },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingTop: 60, paddingBottom: 16, paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'web' ? 16 : 56, paddingBottom: 16, paddingHorizontal: 20,
     backgroundColor: colors.card,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
