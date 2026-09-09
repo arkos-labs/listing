@@ -1,6 +1,6 @@
 import { Platform, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { LayoutDashboard, Database } from 'lucide-react-native';
+import { LayoutDashboard, Database, MessageSquare } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useMemo } from 'react';
 
@@ -54,6 +54,13 @@ export default function AdminLayout() {
         options={{
           title: 'Base',
           tabBarIcon: ({ focused }) => <TabIcon Icon={Database} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="support"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ focused }) => <TabIcon Icon={MessageSquare} focused={focused} />,
         }}
       />
     </Tabs>

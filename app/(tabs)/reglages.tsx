@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View, Linking } from 'react-native';
 import { useGoal } from '@/context/GoalContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 import { radius, shadow } from '@/lib/theme';
 import { Target, Check } from 'lucide-react-native';
 
@@ -10,6 +11,7 @@ export default function ReglagesScreen() {
   const { monthlyGoal, setMonthlyGoal, prixBon, setPrixBon, loading } = useGoal();
   const { colors, isDark } = useTheme();
   const { logout } = useAuth();
+  const router = useRouter();
   const [input, setInput] = useState(String(monthlyGoal));
   const [inputPrix, setInputPrix] = useState(String(prixBon));
   const [savedGoal, setSavedGoal] = useState(false);
@@ -90,11 +92,21 @@ export default function ReglagesScreen() {
         </View>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.card, { marginTop: 24, backgroundColor: colors.redSoft, borderColor: colors.redSoft, alignItems: 'center' }]}
         onPress={logout}
       >
         <Text style={{ color: colors.red, fontWeight: '800', fontSize: 14 }}>Se déconnecter</Text>
+      </TouchableOpacity>
+
+      {/* Bouton contact admin — discret */}
+      <TouchableOpacity
+        style={{ marginTop: 32, alignSelf: 'center', padding: 12 }}
+        onPress={() => router.push('/(tabs)/support')}
+      >
+        <Text style={{ color: colors.textFaint, fontSize: 11, fontWeight: '500' }}>
+          Contacter l'administrateur
+        </Text>
       </TouchableOpacity>
     </View>
   );

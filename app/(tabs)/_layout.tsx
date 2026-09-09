@@ -154,6 +154,10 @@ export default function TabLayout() {
         options={{ href: null }}
       />
       <Tabs.Screen
+        name="aide"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
         name="moto"
         options={{
           title: 'Moto',
@@ -166,6 +170,10 @@ export default function TabLayout() {
           title: 'Réglages',
           tabBarIcon: ({ focused }) => <TabIcon Icon={Settings} focused={focused} />,
         }}
+      />
+      <Tabs.Screen
+        name="support"
+        options={{ href: null }}
       />
     </Tabs>
     </>
