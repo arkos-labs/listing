@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,9 +19,12 @@ import { parsePdfFile } from '@/lib/pdfImport';
 import { formatEuro, formatQte } from '@/lib/kpi';
 import { computeWorkTotals, formatDuration } from '@/lib/worktime';
 import { radius, shadow, heroShadow } from '@/lib/theme';
-import { Moon, Sun, Clock, Fuel, TrendingUp, FlaskConical, PenLine, Eye, EyeOff, Upload } from 'lucide-react-native';
+import { Moon, Sun, Clock, Fuel, TrendingUp, FlaskConical, PenLine, Eye, EyeOff, Upload, MessageSquare } from 'lucide-react-native';
 import { detectDomaine } from '@/lib/domaine';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+
+const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -33,7 +37,67 @@ export default function DashboardScreen() {
   const { totals: kmTotals, add: addKm } = useKm();
   const { isDark, colors, toggleTheme } = useTheme();
   const { importFiles } = useReference();
-  const { prenom } = useAuth();
+  const { prenom, user } = useAuth();
+  const [unreadMsgs, setUnreadMsgs] = useState<{ prenom: string; content: string }[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data.user?.email ?? null;
+      setUserEmail(email);
+      checkUnread(email);
+    });
+
+    // Écoute temps réel des nouveaux messages
+    const channel = supabase
+      .channel('home_notif')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
+        supabase.auth.getUser().then(({ data }) => checkUnread(data.user?.email ?? null));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Re-vérifier quand on revient sur l'accueil (après avoir lu les messages)
+  useFocusEffect(useCallback(() => {
+    supabase.auth.getUser().then(({ data }) => checkUnread(data.user?.email ?? null));
+  }, []));
+
+  const checkUnread = async (email: string | null) => {
+    if (!email) return;
+    if (email === SUPER_ADMIN) {
+      // Admin : messages non lus des chauffeurs avec leur prénom
+      const { data: msgs } = await supabase
+        .from('support_messages')
+        .select('user_id, content')
+        .eq('sender', 'user')
+        .is('read_at', null);
+      if (!msgs || msgs.length === 0) { setUnreadMsgs([]); return; }
+      const userIds = [...new Set(msgs.map(m => m.user_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, prenom')
+        .in('id', userIds);
+      const prenomMap = new Map((profiles ?? []).map(p => [p.id, p.prenom || 'Utilisateur']));
+      const grouped = userIds.map(uid => ({
+        prenom: prenomMap.get(uid) ?? 'Utilisateur',
+        content: msgs.find(m => m.user_id === uid)?.content ?? '',
+      }));
+      setUnreadMsgs(grouped);
+    } else {
+      // Chauffeur : réponses non lues de l'admin
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session.session?.user.id;
+      if (!userId) return;
+      const { data: msgs } = await supabase
+        .from('support_messages')
+        .select('content')
+        .eq('user_id', userId)
+        .eq('sender', 'admin')
+        .is('read_at', null);
+      setUnreadMsgs((msgs ?? []).map(m => ({ prenom: 'Admin', content: m.content })));
+    }
+  };
 
   const [fuelInput, setFuelInput] = useState('');
   const [addingFuel, setAddingFuel] = useState(false);
@@ -195,6 +259,44 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+      {/* ── NOTIFICATION MESSAGES ── */}
+      {unreadMsgs.length > 0 && (
+        <TouchableOpacity
+          style={{ backgroundColor: '#1A6137', borderRadius: 16, marginHorizontal: 16, marginTop: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+          onPress={() => router.push('/(tabs)/support')}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageSquare size={18} color="#fff" strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {userEmail === SUPER_ADMIN ? (
+              <>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+                  {unreadMsgs.length === 1
+                    ? `Message de ${unreadMsgs[0].prenom}`
+                    : `${unreadMsgs.length} nouveaux messages`}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                  {unreadMsgs.map(m => m.prenom).join(', ')}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+                  {unreadMsgs.length === 1 ? 'Nouveau message' : `${unreadMsgs.length} nouveaux messages`}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                  {unreadMsgs[0].content}
+                </Text>
+              </>
+            )}
+          </View>
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+            <Text style={{ color: '#1A6137', fontWeight: '900', fontSize: 12 }}>{unreadMsgs.length}</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* ── HEADER ── */}
       <View style={styles.header}>

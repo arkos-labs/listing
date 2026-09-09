@@ -65,47 +65,49 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   }, [selected]);
 
   const fetchConversations = async () => {
+    // Tous les utilisateurs inscrits
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, prenom, email')
+      .order('prenom', { ascending: true });
+
+    // Tous les messages
     const { data: msgs } = await supabase
       .from('support_messages')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!msgs || msgs.length === 0) { setLoading(false); return; }
-
-    const map = new Map<string, { last_message: string; last_at: string; unread: number }>();
-    for (const m of msgs) {
-      if (!map.has(m.user_id)) {
-        map.set(m.user_id, {
+    const msgMap = new Map<string, { last_message: string; last_at: string; unread: number }>();
+    for (const m of (msgs ?? [])) {
+      if (!msgMap.has(m.user_id)) {
+        msgMap.set(m.user_id, {
           last_message: m.content,
           last_at: m.created_at,
           unread: m.sender === 'user' && !m.read_at ? 1 : 0,
         });
       } else if (m.sender === 'user' && !m.read_at) {
-        map.get(m.user_id)!.unread++;
+        msgMap.get(m.user_id)!.unread++;
       }
     }
 
-    const userIds = Array.from(map.keys());
-    if (userIds.length === 0) { setLoading(false); return; }
+    const convs: Conversation[] = (profiles ?? []).map(p => ({
+      user_id: p.id,
+      prenom: p.prenom || 'Utilisateur',
+      email: p.email || '',
+      last_message: msgMap.get(p.id)?.last_message ?? '',
+      last_at: msgMap.get(p.id)?.last_at ?? '',
+      unread: msgMap.get(p.id)?.unread ?? 0,
+    }));
 
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, prenom, email')
-      .in('id', userIds);
-
-    const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
-
-    const convs: Conversation[] = userIds.map(uid => {
-      const p = profileMap.get(uid);
-      return {
-        user_id: uid,
-        prenom: p?.prenom || 'Utilisateur',
-        email: p?.email || '',
-        ...map.get(uid)!,
-      };
+    // Trier : non lus en premier, puis par date, puis alphabétique
+    convs.sort((a, b) => {
+      if (b.unread !== a.unread) return b.unread - a.unread;
+      if (a.last_at && b.last_at) return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
+      if (a.last_at) return -1;
+      if (b.last_at) return 1;
+      return a.prenom.localeCompare(b.prenom);
     });
 
-    convs.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
     setConversations(convs);
     setLoading(false);
   };
@@ -130,16 +132,6 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
     if (!text.trim() || !selected) return;
     const content = text.trim();
     setText('');
-    // Ajout optimiste
-    const tempMsg: Message = {
-      id: Date.now().toString(),
-      user_id: selected.user_id,
-      content,
-      sender: 'admin',
-      created_at: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempMsg]);
-    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     await supabase.from('support_messages').insert({
       user_id: selected.user_id,
       content,
@@ -225,23 +217,29 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
           {conversations.map(conv => (
             <TouchableOpacity
               key={conv.user_id}
-              style={s.convCard}
+              style={[s.convCard, conv.unread > 0 && { borderLeftWidth: 3, borderLeftColor: '#1A6137' }]}
               onPress={() => { setSelected(conv); fetchMessages(conv.user_id); }}
             >
-              <View style={[s.convAvatar, { backgroundColor: '#134024' }]}>
+              <View style={[s.convAvatar, { backgroundColor: conv.unread > 0 ? '#1A6137' : '#6b7280' }]}>
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18 }}>
                   {conv.prenom[0]?.toUpperCase()}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.convName}>{conv.prenom}</Text>
+                <Text style={[s.convName, conv.unread > 0 && { color: '#1A6137' }]}>{conv.prenom}</Text>
                 <Text style={{ fontSize: 11, color: colors.textFaint, fontWeight: '500' }}>{conv.email}</Text>
-                <Text style={s.convLast} numberOfLines={1}>{conv.last_message}</Text>
+                {conv.last_message ? (
+                  <Text style={s.convLast} numberOfLines={1}>{conv.last_message}</Text>
+                ) : (
+                  <Text style={{ fontSize: 12, color: colors.textFaint, fontStyle: 'italic' }}>Aucun message</Text>
+                )}
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <Text style={s.convTime}>
-                  {new Date(conv.last_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+                {conv.last_at ? (
+                  <Text style={s.convTime}>
+                    {new Date(conv.last_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                ) : null}
                 {conv.unread > 0 && (
                   <View style={s.badge}>
                     <Text style={s.badgeText}>{conv.unread}</Text>
@@ -295,6 +293,13 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       .order('created_at', { ascending: true });
     setMessages(data ?? []);
     setLoading(false);
+    // Marquer les messages admin comme lus
+    await supabase
+      .from('support_messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', user?.id)
+      .eq('sender', 'admin')
+      .is('read_at', null);
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 100);
   };
 
@@ -302,16 +307,6 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
     if (!text.trim() || sending) return;
     const content = text.trim();
     setText('');
-    // Ajout optimiste immédiat
-    const tempMsg: Message = {
-      id: Date.now().toString(),
-      user_id: user?.id ?? '',
-      content,
-      sender: 'user',
-      created_at: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempMsg]);
-    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     setSending(true);
     await supabase.from('support_messages').insert({
       user_id: user?.id,
