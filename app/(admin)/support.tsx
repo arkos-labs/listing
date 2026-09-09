@@ -19,6 +19,7 @@ type Message = {
 type Conversation = {
   user_id: string;
   prenom: string;
+  email: string;
   last_message: string;
   last_at: string;
   unread: number;
@@ -73,16 +74,19 @@ export default function AdminSupportScreen() {
     const userIds = Array.from(map.keys());
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, prenom')
+      .select('id, prenom, email')
       .in('id', userIds);
 
-    const prenomMap = new Map((profiles ?? []).map(p => [p.id, p.prenom]));
+    const profileMap = new Map((profiles ?? []).map(p => [p.id, p]));
 
-    const convs: Conversation[] = userIds.map(uid => ({
+    const convs: Conversation[] = userIds.map(uid => {
+      const p = profileMap.get(uid);
+      return {
       user_id: uid,
-      prenom: prenomMap.get(uid) ?? 'Utilisateur',
+      prenom: p?.prenom || 'Utilisateur',
+      email: p?.email || '',
       ...map.get(uid)!,
-    }));
+    };});
 
     convs.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
     setConversations(convs);
@@ -207,6 +211,7 @@ export default function AdminSupportScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.convName}>{conv.prenom}</Text>
+                <Text style={{ fontSize: 11, color: colors.textFaint, fontWeight: '500' }} numberOfLines={1}>{conv.email}</Text>
                 <Text style={s.convLast} numberOfLines={1}>{conv.last_message}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
