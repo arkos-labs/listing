@@ -1,71 +1,108 @@
 // lib/motivation.ts
+// Messages générés dynamiquement selon le contexte réel de la course ajoutée.
+// Ne s'affiche QUE lors d'un ajout — jamais au démarrage ou à la réouverture.
 
-export const MOTIVATIONAL_MESSAGES = [
-  "Allez, encore un petit effort !",
-  "Super rythme !",
-  "Tu gères aujourd'hui !",
-  "Continue comme ça, champion !",
-  "En route vers l'objectif !",
-  "C'est une belle journée pour engranger !",
-  "Chaque bon compte !",
-  "Ne lâche rien !",
-  "La journée s'annonce très bonne !",
-  "Un de plus dans la poche !",
-  "On reste concentré !",
-  "Le CA grimpe en flèche !",
-  "Plus que quelques uns !",
-  "Impressionnant !",
-  "Rien ne t'arrête aujourd'hui !",
-  "Excellente dynamique !",
-  "Tu vas exploser les compteurs !",
-  "Garde ce rythme de croisière !",
-  "C'est comme ça qu'on fait du chiffre !",
-  "On est sur la bonne voie !",
-  "Encore une belle course !",
-  "Tu es une machine !",
-  "Rien ne peut te stopper !",
-  "Quel enchaînement !",
-  "Les bons s'accumulent vite !",
-  "On maintient le cap !",
-  "L'objectif approche à grands pas !",
-  "Un vrai pro !",
-  "C'est le moment d'accélérer !",
-  "Bientôt la pause bien méritée !",
-  "On garde l'énergie au max !",
-  "En mode turbo !",
-  "Pas de repos pour les braves !",
-  "Tu maîtrises ton sujet !",
-  "Le portefeuille te dit merci !",
-  "La motivation est au sommet !",
-  "Encore un bel arrêt !",
-  "On carbure aujourd'hui !",
-  "Régularité et efficacité !",
-  "Le travail paie toujours !",
-  "Un vrai marathonien du bitume !",
-  "On reste serein et on encaisse !",
-  "C'est ça qu'on aime voir !",
-  "La machine est lancée !",
-  "Objectif en ligne de mire !",
-  "On fait grimper les stats !",
-  "Ton application est fière de toi !",
-  "Chaque clic te rapproche du but !",
-  "Tu brûles le pavé !",
-  "C'est une journée record en vue !"
-];
+import type { UserHabits } from '@/lib/learningEngine';
 
-export const GOAL_REACHED_MESSAGES = [
-  "Objectif du jour atteint ! Magique !",
-  "Rythme du jour atteint ! Tu déchires !",
-  "Félicitations, contrat rempli aujourd'hui !",
-  "Mission accomplie, tu peux être fier !",
-  "Objectif pulvérisé ! Exceptionnel !"
-];
+export interface MotivationContext {
+  prenom: string;          // prénom de l'utilisateur
+  bonsJour: number;        // bons cumulés aujourd'hui APRÈS ajout
+  caJour: number;          // CA du jour en € APRÈS ajout
+  coursesJour: number;     // nombre de courses aujourd'hui APRÈS ajout
+  bonsMois: number;        // bons du mois
+  monthlyGoal: number;     // objectif mensuel en bons (0 = pas défini)
+  prixBon: number;         // prix unitaire du bon
+  qteBonAjoutee: number;   // bons de la course qui vient d'être ajoutée
+  heureActuelle: number;   // heure locale (0-23)
+  habits?: UserHabits | null; // habitudes apprises (null = pas encore assez de données)
+}
 
-export function getRandomMotivation(goalReached: boolean = false): string {
-  if (goalReached) {
-    const idx = Math.floor(Math.random() * GOAL_REACHED_MESSAGES.length);
-    return GOAL_REACHED_MESSAGES[idx];
+/** Génère un message de motivation contextuel et personnalisé. */
+export function generateMotivationMessage(ctx: MotivationContext): string {
+  const { prenom, bonsJour, caJour, coursesJour, bonsMois, monthlyGoal, prixBon, qteBonAjoutee, heureActuelle, habits } = ctx;
+
+  const nom = prenom ? ` ${prenom}` : '';
+  const ca = caJour.toFixed(0);
+  const paliers = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
+
+  // ── Messages basés sur les habitudes apprises ──────────────────────────
+  if (habits && habits.dataPoints >= 5) {
+    // Comparaison avec le rythme habituel à cette heure
+    if (habits.avgBonsAtThisHour !== null && coursesJour > 1) {
+      const diff = bonsJour - habits.avgBonsAtThisHour;
+      const pct = Math.round((diff / habits.avgBonsAtThisHour) * 100);
+      if (diff >= 3 && pct >= 20) {
+        return `📈 +${pct}% vs ton rythme habituel à cette heure${nom} — excellente journée.`;
+      }
+      if (diff <= -3 && pct <= -20) {
+        return `💪 Un peu en dessous de ton rythme${nom} — encore du temps devant toi.`;
+      }
+      if (Math.abs(diff) <= 1) {
+        return `📊 Dans ta moyenne${nom} — régularité au top.`;
+      }
+    }
   }
-  const idx = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-  return MOTIVATIONAL_MESSAGES[idx];
+
+  // 1. Objectif mensuel atteint
+  if (monthlyGoal > 0 && bonsMois >= monthlyGoal) {
+    return `🏆 Objectif du mois atteint${nom} ! ${bonsMois} bons — c'est dans la poche.`;
+  }
+
+  // 2. Palier rond franchi aujourd'hui
+  const palierFranchi = paliers.find((p) => bonsJour >= p && bonsJour - qteBonAjoutee < p);
+  if (palierFranchi) {
+    if (palierFranchi >= 50) return `🔥 ${palierFranchi} bons aujourd'hui${nom} — journée de légende.`;
+    if (palierFranchi >= 20) return `💪 ${palierFranchi} bons ce soir${nom} — tu gères vraiment.`;
+    return `⚡ ${palierFranchi} bons franchis${nom} — belle progression.`;
+  }
+
+  // 3. Première course de la journée
+  if (coursesJour === 1) {
+    if (heureActuelle < 9) return `☀️ C'est parti${nom} — bonne journée devant toi.`;
+    if (heureActuelle < 12) return `🚀 Première course de la matinée${nom} — la machine est lancée.`;
+    if (heureActuelle < 15) return `🕐 Premier bon de l'après-midi${nom} — allons-y.`;
+    return `🌆 On commence${nom}, il est encore temps de faire une belle fin de journée.`;
+  }
+
+  // 4. Proche de l'objectif mensuel (moins de 10% restant)
+  if (monthlyGoal > 0) {
+    const reste = monthlyGoal - bonsMois;
+    if (reste > 0 && reste <= monthlyGoal * 0.1) {
+      return `🎯 Plus que ${reste} bons pour l'objectif du mois${nom} — t'es tout près.`;
+    }
+  }
+
+  // 5. Beau CA en fin de journée
+  if (heureActuelle >= 17 && caJour >= 150) {
+    return `💰 ${ca} € aujourd'hui${nom} — belle fin de journée.`;
+  }
+
+  // 6. Enchaînement rapide (beaucoup de courses)
+  if (coursesJour >= 8) return `🔄 ${coursesJour} courses aujourd'hui${nom} — quel rythme.`;
+  if (coursesJour >= 5) return `📦 ${coursesJour} courses${nom} — t'es en plein dans le rush.`;
+
+  // 7. Grosse course (beaucoup de bons d'un coup)
+  if (qteBonAjoutee >= 5) return `💥 ${qteBonAjoutee} bons d'un coup${nom} — belle course.`;
+
+  // 8. Messages neutres variés selon l'heure et le nombre de bons
+  const msgsMatin = [
+    `☀️ ${bonsJour} bons${nom}, bonne dynamique ce matin.`,
+    `🚀 En route — ${bonsJour} bons au compteur${nom}.`,
+    `📈 La journée monte${nom} — ${ca} € pour l'instant.`,
+  ];
+  const msgsApresMidi = [
+    `⚡ ${bonsJour} bons${nom} — bel après-midi.`,
+    `💼 Course validée${nom} — ${ca} € au total.`,
+    `🔥 Ça tourne${nom} — ${bonsJour} bons aujourd'hui.`,
+  ];
+  const msgsSoir = [
+    `🌙 ${bonsJour} bons pour aujourd'hui${nom} — bonne journée.`,
+    `✅ Course ajoutée — ${ca} € de CA ce soir${nom}.`,
+    `🏁 ${bonsJour} bons${nom} — belle fin de journée.`,
+  ];
+
+  const pool = heureActuelle < 13 ? msgsMatin : heureActuelle < 18 ? msgsApresMidi : msgsSoir;
+
+  // Déterministe selon le nombre de courses (pas aléatoire → stable sur la session)
+  return pool[coursesJour % pool.length];
 }

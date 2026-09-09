@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, ForwardedRef } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
+import { Animated, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCourses } from '@/context/CoursesContext';
 import { useFavoris } from '@/context/FavorisContext';
 import { useReference } from '@/context/ReferenceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useGoal } from '@/context/GoalContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   suggestLocations,
   matchByPickup,
@@ -17,20 +18,23 @@ import {
 } from '@/lib/reference';
 import { formatQte, formatEuro } from '@/lib/kpi';
 import { computeMontant } from '@/lib/pricing';
+import { generateMotivationMessage } from '@/lib/motivation';
+import { recordCourseAdded, getUserHabits } from '@/lib/learningEngine';
 import { SimulateurCourse, calculerTournee } from '@/lib/optimisation';
 import { radius, shadow, shadowMd } from '@/lib/theme';
 import { detectDomaine } from '@/lib/domaine';
 import type { CourseInput } from '@/types/course';
-import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star } from 'lucide-react-native';
+import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star, ArrowUpDown } from 'lucide-react-native';
 
 const PRESETS = [1, 2, 2.5, 3, 5, 8];
 
 export default function SaisieScreen() {
-  const { add } = useCourses();
+  const { add, kpi } = useCourses();
   const { favoris, toggle: toggleFavori, isFavori } = useFavoris();
   const { referenceCourses } = useReference();
   const { colors } = useTheme();
-  const { prixBon } = useGoal();
+  const { prixBon, monthlyGoal } = useGoal();
+  const { prenom } = useAuth();
   const router = useRouter();
 
   const [form, setForm] = useState<CourseInput>({
@@ -43,6 +47,8 @@ export default function SaisieScreen() {
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [motivMsg, setMotivMsg] = useState<string | null>(null);
+  const motivAnim = useRef(new Animated.Value(0)).current;
   const [autoFromBase, setAutoFromBase] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
@@ -187,6 +193,15 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
+  const showMotivation = (msg: string) => {
+    setMotivMsg(msg);
+    Animated.sequence([
+      Animated.timing(motivAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2800),
+      Animated.timing(motivAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => setMotivMsg(null));
+  };
+
   const submit = async () => {
     setError(null);
     if (lotComplet.length === 0) { setError("Indiquez au moins une course."); return; }
@@ -204,10 +219,38 @@ export default function SaisieScreen() {
           optimise: c.optimise,
         });
       }
+      // Calcul du total de bons ajoutés dans cette session
+      const totalBonsAjoutes = resultatLot.totalBonsOptimise;
       setBatch([]);
       setForm({ lieuEnlevement: '', lieuLivraison: '', qteBon: 0, montantAchat: 0, vehicule: '' });
       setAutoFromBase(false);
       setFlash(true);
+
+      // Message de motivation personnalisé — basé sur le KPI mis à jour + habitudes apprises
+      const heure = new Date().getHours();
+      const bonsJourFinal = kpi.bonsJour + totalBonsAjoutes;
+      const coursesJourFinal = kpi.coursesJour + resultatLot.courses.length;
+
+      // Enregistrer + lire les habitudes en parallèle
+      const [, habits] = await Promise.all([
+        recordCourseAdded(bonsJourFinal, coursesJourFinal, heure, kpi.coursesJour === 0),
+        getUserHabits(heure, new Date().getDay()),
+      ]);
+
+      const msg = generateMotivationMessage({
+        prenom: prenom ?? '',
+        bonsJour: bonsJourFinal,
+        caJour: kpi.caJour + totalBonsAjoutes * prixBon,
+        coursesJour: coursesJourFinal,
+        bonsMois: kpi.bonsMois + totalBonsAjoutes,
+        monthlyGoal,
+        prixBon,
+        qteBonAjoutee: totalBonsAjoutes,
+        heureActuelle: heure,
+        habits,
+      });
+      showMotivation(msg);
+
       setTimeout(() => {
         setFlash(false);
         router.replace('/');
@@ -297,10 +340,22 @@ export default function SaisieScreen() {
         </View>
       )}
 
-      {/* Enlèvement */}
+      {/* Enlèvement + bouton inverser */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Enlèvement</Text>
-        <View style={[styles.inputCard, shadow]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Enlèvement</Text>
+          {(form.lieuEnlevement.trim().length >= 2 || form.lieuLivraison.trim().length >= 2) && (
+            <TouchableOpacity
+              onPress={() => setForm((f) => ({ ...f, lieuEnlevement: f.lieuLivraison, lieuLivraison: f.lieuEnlevement, vehicule: '' }))}
+              style={styles.swapBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <ArrowUpDown size={13} color={colors.textMuted} />
+              <Text style={styles.swapBtnText}>Inverser</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={[styles.inputCard, shadow as any]}>
           <View style={styles.inputIconWrap}>
             <MapPin size={16} color={colors.green} />
           </View>
@@ -494,6 +549,16 @@ export default function SaisieScreen() {
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Toast motivation */}
+      {motivMsg && (
+        <Animated.View style={[styles.motivToast, {
+          opacity: motivAnim,
+          transform: [{ translateY: motivAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+        }]}>
+          <Text style={styles.motivText}>{motivMsg}</Text>
+        </Animated.View>
+      )}
 
       {/* Bouton valider */}
       <TouchableOpacity
@@ -726,6 +791,43 @@ function makeStyles(colors: any, isDark: boolean) {
       width: 48, height: 48, borderRadius: 24,
       backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center',
       shadowColor: colors.green, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    },
+
+    motivToast: {
+      backgroundColor: colors.green,
+      borderRadius: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      marginBottom: 12,
+      shadowColor: colors.green,
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+    motivText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '700',
+      textAlign: 'center',
+      letterSpacing: 0.1,
+    },
+
+    swapBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: isDark ? colors.bgSubtle : '#F0F2F5',
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    swapBtnText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
     },
 
     favoriChip: {
