@@ -26,7 +26,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError('');
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'https://listing-one.vercel.app/reset-password',
+      redirectTo: 'https://listing-main-one.vercel.app/reset-password',
     });
     setLoading(false);
     if (err) {
