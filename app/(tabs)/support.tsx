@@ -186,7 +186,8 @@ const styles = (colors: any, isDark: boolean) => StyleSheet.create({
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12, paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 110 : 96,
     backgroundColor: colors.card,
     borderTopWidth: 1, borderTopColor: colors.border,
   },
