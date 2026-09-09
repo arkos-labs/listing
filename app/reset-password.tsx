@@ -21,8 +21,19 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  // Supabase injects the session automatically via the URL hash on web
-  // We just need to call updateUser once the user submits
+  // Sur le web, Supabase envoie le token dans le hash de l'URL
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.replace('#', ''));
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({ access_token, refresh_token });
+      }
+    }
+  }, []);
+
   const handleReset = async () => {
     if (!password) { setError('Veuillez entrer un nouveau mot de passe.'); return; }
     if (password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caractères.'); return; }
