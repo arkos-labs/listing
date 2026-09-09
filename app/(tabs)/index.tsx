@@ -263,12 +263,12 @@ export default function DashboardScreen() {
     : ['#0D4A28', '#1A7043', '#0F4D2C'];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
-      {/* ── NOTIFICATION MESSAGES ── */}
+      {/* ── NOTIFICATION MESSAGES — fixée en haut ── */}
       {unreadMsgs.length > 0 && (
         <TouchableOpacity
-          style={{ backgroundColor: '#1A6137', borderRadius: 16, marginHorizontal: 16, marginTop: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+          style={{ backgroundColor: '#1A6137', marginHorizontal: 16, marginTop: 52, marginBottom: 4, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 }}
           onPress={() => router.push('/(tabs)/support')}
         >
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -302,6 +302,8 @@ export default function DashboardScreen() {
           </View>
         </TouchableOpacity>
       )}
+
+    <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
@@ -648,6 +650,7 @@ export default function DashboardScreen() {
       </Modal>
 
     </ScrollView>
+    </View>
   );
 }
 
