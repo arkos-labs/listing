@@ -165,6 +165,8 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
           data={messages}
           keyExtractor={m => m.id}
           contentContainerStyle={s.list}
+          onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item }) => {
             const isAdmin = item.sender === 'admin';
             return (
@@ -369,6 +371,8 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
           keyExtractor={m => m.id}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
           ListEmptyComponent={
             <View style={s.empty}>
               <Text style={{ fontSize: 32, marginBottom: 12 }}>👋</Text>
