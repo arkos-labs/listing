@@ -41,10 +41,24 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   useEffect(() => {
     fetchConversations();
     const channel = supabase
-      .channel('admin_support_all')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
+      .channel('admin_support_realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'support_messages',
+      }, (payload) => {
+        const newMsg = payload.new as Message;
+        // Mettre à jour la liste des conversations
         fetchConversations();
-        if (selected) fetchMessages(selected.user_id);
+        // Si la conversation ouverte correspond, ajouter le message instantanément
+        if (selected && newMsg.user_id === selected.user_id) {
+          setMessages(prev => {
+            // Éviter les doublons (optimiste déjà ajouté)
+            if (prev.find(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -52,9 +66,11 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
 
   const fetchConversations = async () => {
     const { data: msgs } = await supabase
-      .rpc('get_all_support_messages');
+      .from('support_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    if (!msgs) { setLoading(false); return; }
+    if (!msgs || msgs.length === 0) { setLoading(false); return; }
 
     const map = new Map<string, { last_message: string; last_at: string; unread: number }>();
     for (const m of msgs) {
@@ -95,11 +111,12 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   };
 
   const fetchMessages = async (userId: string) => {
-    const { data: all } = await supabase.rpc('get_all_support_messages');
-    const filtered = (all ?? [])
-      .filter((m: Message) => m.user_id === userId)
-      .sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    setMessages(filtered);
+    const { data } = await supabase
+      .from('support_messages')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    setMessages(data ?? []);
     await supabase
       .from('support_messages')
       .update({ read_at: new Date().toISOString() })
@@ -123,9 +140,10 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
     };
     setMessages(prev => [...prev, tempMsg]);
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
-    await supabase.rpc('admin_send_message', {
-      p_user_id: selected.user_id,
-      p_content: content,
+    await supabase.from('support_messages').insert({
+      user_id: selected.user_id,
+      content,
+      sender: 'admin',
     });
   };
 
@@ -253,10 +271,16 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
     const channel = supabase
       .channel('support_driver_' + user?.id)
       .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'support_messages',
+        event: 'INSERT',
+        schema: 'public',
+        table: 'support_messages',
         filter: `user_id=eq.${user?.id}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message]);
+        const newMsg = payload.new as Message;
+        setMessages(prev => {
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
         setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
       })
       .subscribe();
