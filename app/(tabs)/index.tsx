@@ -319,9 +319,7 @@ export default function DashboardScreen() {
       {/* ── TUILES ── */}
       <View style={styles.tilesRow}>
         <View style={[styles.tile, shadow]}>
-          <View style={styles.tileIconWrap}>
-            <Fuel size={15} color={colors.green} />
-          </View>
+          <Text style={{ fontSize: 20 }}>⛽</Text>
           <Text style={styles.tileLabel}>Essence</Text>
           <Text style={styles.tileValue}>{formatEuro(totals.mois)}<Text style={styles.tileSuffix}>/m</Text></Text>
           <View style={styles.tileInputRow}>

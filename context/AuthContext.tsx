@@ -84,7 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAuthenticated = !!session;
     const inAdminGroup = segments[0] === '(admin)';
     const inTabsGroup = segments[0] === '(tabs)';
-    const inLogin = segments[0] === 'login' || segments[0] === 'signup';
+    const inLogin = segments[0] === 'login' || segments[0] === 'signup'
+      || segments[0] === 'forgot-password' || segments[0] === 'reset-password';
 
     if (!isAuthenticated && !inLogin) {
       router.replace('/login');

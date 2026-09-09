@@ -83,6 +83,15 @@ export default function LoginScreen() {
 
 
 
+          <TouchableOpacity
+            style={styles.forgotBtn}
+            onPress={() => router.push('/forgot-password')}
+          >
+            <Text style={[styles.forgotText, { color: isDark ? colors.greenLight : '#1A6137' }]}>
+              Mot de passe oublié ?
+            </Text>
+          </TouchableOpacity>
+
           {loginError ? (
             <View style={[styles.errorBox, { backgroundColor: '#fee2e2' }]}>
               <Text style={styles.errorText}>{loginError}</Text>
