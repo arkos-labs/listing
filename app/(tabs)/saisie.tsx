@@ -35,8 +35,9 @@ export default function SaisieScreen() {
   const { referenceCourses } = useReference();
   const { colors } = useTheme();
   const { prixBon, monthlyGoal } = useGoal();
-  const { prenom } = useAuth();
+  const { prenom, user } = useAuth();
   const router = useRouter();
+  const isAdmin = user?.email === 'cherkinicolas@gmail.com';
 
   const [form, setForm] = useState<CourseInput>({
     lieuEnlevement: '',
@@ -200,6 +201,19 @@ export default function SaisieScreen() {
   const signalerTarifIncorrect = async (details: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Si c'est l'admin lui-même, il peut corriger directement — pas besoin de s'envoyer un message
+    if (user.email === 'cherkinicolas@gmail.com') {
+      await supabase.from('fare_issues').insert({
+        user_id: user.id,
+        details,
+        reported_by: user.email,
+      }).then(() => {});  // silencieux si table n'existe pas encore
+      setTarifCheck(null);
+      router.replace('/');
+      return;
+    }
+
     const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}\n\nMerci de vérifier et corriger.`;
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
     setTarifCheck(null);
@@ -599,7 +613,9 @@ export default function SaisieScreen() {
               style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
               onPress={() => signalerTarifIncorrect(tarifCheck.details)}
             >
-              <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>❌ Non, signaler</Text>
+              <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>
+                {isAdmin ? '✏️ À corriger' : '❌ Non, signaler'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
