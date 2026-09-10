@@ -61,6 +61,8 @@ export default function SaisieScreen() {
   const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string; courseIds: string[] } | null>(null);
   const [tarifIncorrectMode, setTarifIncorrectMode] = useState(false);
   const [tarifSuggere, setTarifSuggere] = useState('');
+  // Valeur suggérée par la base (pour détecter si le chauffeur l'a changée)
+  const [qteBonSuggere, setQteBonSuggere] = useState<number | null>(null);
 
   const refLivraison = useRef<TextInput>(null);
   const refEnlevement = useRef<TextInput>(null);
@@ -130,6 +132,7 @@ export default function SaisieScreen() {
   const selectRouteVehicule = (vehicule: string, qteBon: number) => {
     const montantAchat = computeMontant(qteBon, prixBon);
     setForm((f) => ({ ...f, vehicule: f.vehicule === vehicule ? '' : vehicule, qteBon: f.vehicule === vehicule ? 0 : qteBon, montantAchat: f.vehicule === vehicule ? 0 : montantAchat }));
+    setQteBonSuggere(qteBon);
     setAutoFromBase(true);
   };
   const selectPickup = (value: string) => { setForm((f) => ({ ...f, lieuEnlevement: value, vehicule: '' })); setPickupOpen(false); refLivraison.current?.focus(); };
@@ -189,8 +192,9 @@ export default function SaisieScreen() {
   const exactMatchKey = exactMatch ? `${exactMatch.qteBon}|${exactMatch.ambiguous}|${exactMatch.reversed}` : '';
 
   useEffect(() => {
-    if (!exactMatch) { if (autoFromBase) { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: 0 })); } return; }
+    if (!exactMatch) { if (autoFromBase) { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: 0 })); setQteBonSuggere(null); } return; }
     setForm((f) => ({ ...f, qteBon: exactMatch.qteBon }));
+    setQteBonSuggere(exactMatch.qteBon);
     setAutoFromBase(true);
   }, [exactMatchKey]);
 
@@ -290,16 +294,31 @@ export default function SaisieScreen() {
       });
       showMotivation(msg);
 
-      // Vérification du tarif — on demande après la saisie
       const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(c.qteBonOptimise, prixBon), 0);
-      const detailsCourses = resultatLot.courses.map((c, i) =>
+      const detailsCourses = resultatLot.courses.map((c) =>
         `${c.lieuEnlevement} → ${c.lieuLivraison} (${c.qteBonOptimise} bons · ${formatEuro(computeMontant(c.qteBonOptimise, prixBon))})`
       ).join('\n');
-      setTarifCheck({ montant: totalMontant, details: detailsCourses, courseIds: savedIds });
 
-      setTimeout(() => {
-        setFlash(false);
-      }, 800);
+      // Si le chauffeur a changé la valeur suggérée par la base → signal automatique sans demander
+      const chauffeurAModifie = qteBonSuggere !== null && resultatLot.courses.length === 1
+        && Math.abs(resultatLot.courses[0].qteBonOptimise - qteBonSuggere) > 0.01;
+
+      if (chauffeurAModifie && !isAdmin) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const montantSuggereAuto = formatEuro(computeMontant(qteBonSuggere!, prixBon));
+          const montantSaisi = formatEuro(totalMontant);
+          const autoMsg = `⚠️ Tarif modifié par ${prenom || user.email}\n\n${detailsCourses}\n💡 La base suggérait ${qteBonSuggere} bons (${montantSuggereAuto}), le chauffeur a saisi ${resultatLot.courses[0].qteBonOptimise} bons (${montantSaisi}).\n__IDS__:${savedIds.join(',')}\n__AMOUNT__:${resultatLot.courses[0].qteBonOptimise}`;
+          await supabase.from('support_messages').insert({ user_id: user.id, content: autoMsg, sender: 'user' });
+        }
+        setQteBonSuggere(null);
+        setTimeout(() => { setFlash(false); router.replace('/'); }, 800);
+      } else {
+        // Sinon on demande si le tarif est correct (flow normal)
+        setTarifCheck({ montant: totalMontant, details: detailsCourses, courseIds: savedIds });
+        setQteBonSuggere(null);
+        setTimeout(() => { setFlash(false); }, 800);
+      }
     } catch {
       setError("Échec de l'enregistrement.");
     } finally {
