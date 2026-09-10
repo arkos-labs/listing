@@ -41,7 +41,7 @@ function FareCorrectButton({
   colors: any;
 }) {
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ courses: number; reference: number } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -49,28 +49,35 @@ function FareCorrectButton({
     setLoading(true);
     setErrorMsg(null);
 
-    // Mise à jour directe de chaque course (RLS admin autorise cette opération)
-    let hasError = false;
-    for (const id of fareData.ids) {
-      const { error } = await supabase
-        .from('courses')
-        .update({ qte_bon: fareData.qte, montant_achat: fareData.montant })
-        .eq('id', id);
-      if (error) {
-        setErrorMsg(`Erreur sur course ${id.slice(0, 8)} : ${error.message}`);
-        hasError = true;
-        break;
-      }
+    // RPC security definer (voir supabase/admin_correct_fare.sql) : met à jour
+    // les courses signalées + la référence, et renvoie le nombre de lignes touchées.
+    const { data, error } = await supabase.rpc('admin_correct_fare', {
+      course_ids: fareData.ids,
+      new_qte_bon: fareData.qte,
+      new_montant_achat: fareData.montant,
+    });
+    setLoading(false);
+    setConfirm(false);
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+    const coursesUpdated = Number(data?.courses_updated ?? -1);
+    const referenceUpdated = Number(data?.reference_updated ?? 0);
+    if (coursesUpdated < 0) {
+      setErrorMsg("Ancienne version de la fonction SQL — exécuter supabase/admin_correct_fare.sql");
+      return;
+    }
+    if (coursesUpdated === 0) {
+      setErrorMsg('Aucune course modifiée (courses introuvables ou déjà supprimées)');
+      return;
     }
 
-    setLoading(false);
-    if (hasError) { setConfirm(false); return; }
-
-    setDone(true);
-    setConfirm(false);
+    setDone({ courses: coursesUpdated, reference: referenceUpdated });
     await supabase.from('support_messages').insert({
       user_id: userId,
-      content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ pour ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''}.`,
+      content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ (${coursesUpdated} course${coursesUpdated > 1 ? 's' : ''} modifiée${coursesUpdated > 1 ? 's' : ''}${referenceUpdated > 0 ? `, référence mise à jour` : ''}).`,
       sender: 'admin',
     });
     onDone();
@@ -79,7 +86,9 @@ function FareCorrectButton({
   if (done) {
     return (
       <View style={{ marginTop: 10, backgroundColor: '#d1fae5', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' }}>
-        <Text style={{ color: '#134024', fontWeight: '700', fontSize: 13 }}>✅ Tarif corrigé</Text>
+        <Text style={{ color: '#134024', fontWeight: '700', fontSize: 13 }}>
+          ✅ {done.courses} course{done.courses > 1 ? 's' : ''} · {done.reference} référence{done.reference > 1 ? 's' : ''} modifiée{done.reference > 1 ? 's' : ''}
+        </Text>
       </View>
     );
   }
@@ -192,7 +201,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       }
     }
 
-    const convs: Conversation[] = (profiles ?? []).map(p => ({
+    const convs: Conversation[] = ((profiles ?? []) as { id: string; prenom: string | null; email: string | null }[]).map(p => ({
       user_id: p.id,
       prenom: p.prenom || 'Utilisateur',
       email: p.email || '',

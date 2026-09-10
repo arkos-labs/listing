@@ -61,6 +61,21 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Realtime : quand l'admin corrige un tarif (UPDATE sur courses), on recharge
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('courses_driver_' + user.id)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'courses',
+        filter: `driver_id=eq.${user.id}`,
+      }, () => { refresh(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, refresh]);
+
   const add = useCallback(async (input: CourseInput): Promise<string> => {
     if (!user) return '';
     const now = new Date().toISOString();

@@ -368,6 +368,21 @@ export default function SaisieScreen() {
           <Text style={styles.title}>Nouvelle course</Text>
           <Text style={styles.subtitle}>Saisie rapide · {formatEuro(prixBon)} / bon</Text>
         </View>
+        {(form.lieuEnlevement.length > 0 || form.lieuLivraison.length > 0 || form.qteBon > 0 || batch.length > 0) && (
+          <TouchableOpacity
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}
+            onPress={() => {
+              setForm({ lieuEnlevement: '', lieuLivraison: '', qteBon: 0, montantAchat: 0, vehicule: '' });
+              setBatch([]);
+              setAutoFromBase(false);
+              setQteBonSuggere(null);
+              refEnlevement.current?.focus();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <X size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── Favoris ── */}
