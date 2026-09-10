@@ -4,6 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useReference } from '@/context/ReferenceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { parseExcelFile } from '@/lib/excelImport';
+import { formatImportResult } from '@/lib/supabaseSync';
 import { parsePdfFile } from '@/lib/pdfImport';
 import { includesNormalized } from '@/lib/text';
 import { formatQte } from '@/lib/kpi';
@@ -91,9 +92,9 @@ export default function BaseScreen() {
       }
       // Passer tous les fichiers pour l'upload Storage
       const filesToUpload = res.assets.map((a) => ({ name: a.name ?? 'fichier_inconnu', uri: a.uri }));
-      const n = await importFiles(allInputs, filesToUpload);
+      const result = await importFiles(allInputs, filesToUpload);
       const errMsg = parseErrors > 0 ? ` (${parseErrors} fichier${parseErrors > 1 ? 's' : ''} ignoré${parseErrors > 1 ? 's' : ''})` : '';
-      setImportMsg(`${n} référence${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''} (${res.assets.length - parseErrors} fichier${res.assets.length - parseErrors > 1 ? 's' : ''})${errMsg}.`);
+      setImportMsg(`${formatImportResult(result)}${errMsg}`);
     } catch (e: any) {
       setImportMsg(`Erreur : ${e?.message ?? String(e)}`);
       console.error('[import]', e);

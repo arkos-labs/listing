@@ -144,9 +144,30 @@ function applyPriceMinimum(rows: MappedRow[]): void {
 // ---------------------------------------------------------------------------
 
 export interface ImportResult {
+  /** Nouvelles lignes réellement insérées en base */
   inserted: number;
+  /** Doublons à l'intérieur des fichiers importés (même trajet+type+prix) */
   duplicates: number;
+  /** Lignes déjà présentes en base (ignorées) */
+  alreadyInDb: number;
+  /** Lignes refusées par la base */
   errors: number;
+  /** Premier message d'erreur renvoyé par Supabase (RLS, colonne, etc.) */
+  errorMessage?: string;
+}
+
+/** Message utilisateur honnête : distingue "rien de nouveau" d'un vrai échec. */
+export function formatImportResult(r: ImportResult): string {
+  if (r.errors > 0 && r.inserted === 0) {
+    return `❌ Import refusé par la base : ${r.errorMessage ?? 'erreur inconnue'}`;
+  }
+  const parts: string[] = [];
+  parts.push(`${r.inserted} nouvelle${r.inserted > 1 ? 's' : ''} course${r.inserted > 1 ? 's' : ''}`);
+  const dejaLa = r.alreadyInDb + r.duplicates;
+  if (dejaLa > 0) parts.push(`${dejaLa} déjà dans la base`);
+  if (r.errors > 0) parts.push(`${r.errors} refusée${r.errors > 1 ? 's' : ''}`);
+  const icon = r.inserted > 0 ? '✅' : 'ℹ️';
+  return `${icon} ${parts.join(' · ')}`;
 }
 
 /**
@@ -158,7 +179,7 @@ export interface ImportResult {
 export async function importCoursesToSupabase(
   courses: ReferenceCourseInput[]
 ): Promise<ImportResult> {
-  if (courses.length === 0) return { inserted: 0, duplicates: 0, errors: 0 };
+  if (courses.length === 0) return { inserted: 0, duplicates: 0, alreadyInDb: 0, errors: 0 };
 
   // Étape 1 : calcul du hash par itinéraire (sans prix) + dédoublonnage MAX qte_bon
   const mapped: MappedRow[] = courses.map((c) => ({
@@ -198,6 +219,8 @@ export async function importCoursesToSupabase(
   const BATCH = 500;
   let inserted = 0;
   let errors = 0;
+  let alreadyInDb = 0;
+  let errorMessage: string | undefined;
 
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
@@ -209,15 +232,19 @@ export async function importCoursesToSupabase(
     if (error) {
       console.error('[supabaseSync] Erreur insertion batch', i, error.message);
       errors += batch.length;
+      if (!errorMessage) errorMessage = error.message;
     } else {
-      inserted += data?.length ?? 0;
+      const n = data?.length ?? 0;
+      inserted += n;
+      // ignoreDuplicates ne renvoie que les lignes créées : le reste existait déjà
+      alreadyInDb += batch.length - n;
     }
   }
 
   // Invalider le cache local pour forcer un rechargement
   if (inserted > 0) await invalidateCache();
 
-  return { inserted, duplicates: Math.max(0, dupCount), errors };
+  return { inserted, duplicates: Math.max(0, dupCount), alreadyInDb, errors, errorMessage };
 }
 
 // ---------------------------------------------------------------------------

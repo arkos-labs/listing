@@ -15,6 +15,7 @@ import { useKm } from '@/context/KmContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useReference } from '@/context/ReferenceContext';
 import { parseExcelFile } from '@/lib/excelImport';
+import { formatImportResult } from '@/lib/supabaseSync';
 import { parsePdfFile } from '@/lib/pdfImport';
 import { formatEuro, formatQte } from '@/lib/kpi';
 import { computeWorkTotals, formatDuration } from '@/lib/worktime';
@@ -243,9 +244,9 @@ export default function DashboardScreen() {
       }
 
       const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
-      const inserted = await importFiles(allInputs, filesToUpload);
-      setImportMsg(`✅ ${inserted} course${inserted > 1 ? 's' : ''} importée${inserted > 1 ? 's' : ''}`);
-      setTimeout(() => setImportMsg(null), 4000);
+      const result = await importFiles(allInputs, filesToUpload);
+      setImportMsg(formatImportResult(result));
+      setTimeout(() => setImportMsg(null), result.errors > 0 ? 8000 : 4000);
     } catch (e: any) {
       setImportMsg(`❌ ${e?.message ?? String(e)}`);
       setTimeout(() => setImportMsg(null), 6000);

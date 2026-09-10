@@ -6,6 +6,7 @@ import {
   importCoursesToSupabase,
   subscribeToRealtimeUpdates,
   invalidateCache,
+  type ImportResult,
 } from '@/lib/supabaseSync';
 import { supabase } from '@/lib/supabase';
 
@@ -17,7 +18,7 @@ interface RealtimeNotif {
 interface ReferenceContextValue {
   referenceCourses: ReferenceCourse[];
   loading: boolean;
-  importFiles: (inputs: ReferenceCourseInput[], filesToUpload?: { name: string; uri: string }[]) => Promise<number>;
+  importFiles: (inputs: ReferenceCourseInput[], filesToUpload?: { name: string; uri: string }[]) => Promise<ImportResult>;
   clearAll: () => Promise<void>;
   refresh: () => Promise<void>;
   realtimeNotif: RealtimeNotif | null;
@@ -67,7 +68,8 @@ export function ReferenceProvider({ children }: { children: React.ReactNode }) {
     inputs: ReferenceCourseInput[],
     filesToUpload?: { name: string, uri: string }[],
   ) => {
-    const { inserted } = await importCoursesToSupabase(inputs);
+    const result = await importCoursesToSupabase(inputs);
+    const { inserted } = result;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user && (inserted > 0 || inputs.length > 0)) {
@@ -108,7 +110,7 @@ export function ReferenceProvider({ children }: { children: React.ReactNode }) {
     }
 
     await refresh();
-    return inserted;
+    return result;
   }, [refresh]);
 
   const clearAll = useCallback(async () => {

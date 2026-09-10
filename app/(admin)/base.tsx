@@ -13,7 +13,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Check, Database, Pencil, Search, Trash2, Upload, X } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useReference } from '@/context/ReferenceContext';
-import { invalidateCache } from '@/lib/supabaseSync';
+import { invalidateCache, formatImportResult } from '@/lib/supabaseSync';
 import { supabase } from '@/lib/supabase';
 import { parseExcelFile } from '@/lib/excelImport';
 import { parsePdfFile } from '@/lib/pdfImport';
@@ -352,8 +352,8 @@ export default function AdminBaseScreen() {
       }
 
       const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
-      const inserted = await importFiles(allInputs, filesToUpload);
-      setImportMsg(`✅ ${inserted} nouvelle${inserted > 1 ? 's' : ''} course${inserted > 1 ? 's' : ''} ajoutée${inserted > 1 ? 's' : ''}`);
+      const result = await importFiles(allInputs, filesToUpload);
+      setImportMsg(formatImportResult(result));
     } catch (e) {
       setImportMsg('❌ Erreur lors de l\'import');
     } finally {
