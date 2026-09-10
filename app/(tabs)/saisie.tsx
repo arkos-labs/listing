@@ -59,6 +59,8 @@ export default function SaisieScreen() {
 
   // Vérification du tarif après saisie
   const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string } | null>(null);
+  const [tarifIncorrectMode, setTarifIncorrectMode] = useState(false);
+  const [tarifSuggere, setTarifSuggere] = useState('');
 
   const refLivraison = useRef<TextInput>(null);
   const refEnlevement = useRef<TextInput>(null);
@@ -198,25 +200,29 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
-  const signalerTarifIncorrect = async (details: string) => {
+  const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Si c'est l'admin lui-même, il peut corriger directement — pas besoin de s'envoyer un message
+    const suggere = parseFloat(montantSuggere.replace(',', '.'));
+    const ligneSuggere = !isNaN(suggere) && suggere > 0
+      ? `\n💡 Tarif selon le chauffeur : ${suggere.toFixed(2)}€ (au lieu de ${montantOriginal.toFixed(2)}€)`
+      : '';
+
+    // Si c'est l'admin lui-même, pas besoin de s'envoyer un message
     if (user.email === 'cherkinicolas@gmail.com') {
-      await supabase.from('fare_issues').insert({
-        user_id: user.id,
-        details,
-        reported_by: user.email,
-      }).then(() => {});  // silencieux si table n'existe pas encore
       setTarifCheck(null);
+      setTarifIncorrectMode(false);
+      setTarifSuggere('');
       router.replace('/');
       return;
     }
 
-    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}\n\nMerci de vérifier et corriger.`;
+    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.`;
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
     setTarifCheck(null);
+    setTarifIncorrectMode(false);
+    setTarifSuggere('');
     router.replace('/');
   };
 
@@ -600,24 +606,63 @@ export default function SaisieScreen() {
             💰 Le tarif est-il correct ?
           </Text>
           <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 14, lineHeight: 20 }}>
-            Total : <Text style={{ fontWeight: '700', color: colors.text }}>{formatEuro(tarifCheck.montant)}</Text>
+            Total calculé : <Text style={{ fontWeight: '700', color: colors.text }}>{formatEuro(tarifCheck.montant)}</Text>
           </Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity
-              style={{ flex: 1, backgroundColor: colors.green, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-              onPress={() => { setTarifCheck(null); router.replace('/'); }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>✅ Oui, correct</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-              onPress={() => signalerTarifIncorrect(tarifCheck.details)}
-            >
-              <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>
-                {isAdmin ? '✏️ À corriger' : '❌ Non, signaler'}
+
+          {!tarifIncorrectMode ? (
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: colors.green, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+                onPress={() => { setTarifCheck(null); router.replace('/'); }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>✅ Oui, correct</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+                onPress={() => isAdmin
+                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '')
+                  : setTarifIncorrectMode(true)
+                }
+              >
+                <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>
+                  {isAdmin ? '✏️ À corriger' : '❌ Non'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                Quel est le bon tarif selon vous ?
               </Text>
-            </TouchableOpacity>
-          </View>
+              <TextInput
+                style={{
+                  backgroundColor: isDark ? colors.bgSubtle : '#F3F4F6',
+                  borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+                  fontSize: 16, fontWeight: '700', color: colors.text,
+                }}
+                value={tarifSuggere}
+                onChangeText={setTarifSuggere}
+                keyboardType="decimal-pad"
+                placeholder="Ex: 4.50"
+                placeholderTextColor={colors.textFaint}
+                autoFocus
+              />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  style={{ flex: 1, backgroundColor: colors.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+                  onPress={() => setTarifIncorrectMode(false)}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>Retour</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ flex: 1, backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+                  onPress={() => signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, tarifSuggere)}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>📨 Envoyer</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
