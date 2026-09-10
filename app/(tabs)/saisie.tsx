@@ -204,37 +204,44 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
+  const buildFareSignalMessage = (
+    nomChauffeur: string,
+    courses: { enl: string; liv: string; qteBon: number; montant: number }[],
+    qteDB: number | null,
+    montantDB: number | null,
+    qteChauffeur: number,
+    montantChauffeur: number,
+    courseIds: string[],
+  ) => {
+    const lignesCourses = courses.map(c =>
+      `• ${c.enl} → ${c.liv}\n  ${c.qteBon} bons · ${c.montant.toFixed(2)}€`
+    ).join('\n');
+    const comparaison = qteDB !== null
+      ? `\n📋 Tarif base de données : ${qteDB} bons → ${montantDB?.toFixed(2)}€\n✏️ Tarif chauffeur : ${qteChauffeur} bons → ${montantChauffeur.toFixed(2)}€`
+      : `\n✏️ Tarif proposé par ${nomChauffeur} : ${qteChauffeur} bons → ${montantChauffeur.toFixed(2)}€`;
+    const data = JSON.stringify({ ids: courseIds, qte: qteChauffeur, montant: montantChauffeur });
+    return `⚠️ Tarif incorrect — ${nomChauffeur}\n\n${lignesCourses}${comparaison}\n\n|||FARE_DATA:${data}|||`;
+  };
+
   const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string, courseIds: string[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const suggere = parseFloat(montantSuggere.replace(',', '.'));
-    const hasSuggestion = !isNaN(suggere) && suggere > 0;
-
     if (user.email === 'cherkinicolas@gmail.com') {
-      setTarifCheck(null);
-      setTarifIncorrectMode(false);
-      setTarifSuggere('');
-      router.replace('/');
-      return;
+      setTarifCheck(null); setTarifIncorrectMode(false); setTarifSuggere('');
+      router.replace('/'); return;
     }
 
-    // Format structuré pour que l'admin puisse corriger en 1 clic
-    const idsLine = courseIds.length > 0 ? `\n__IDS__:${courseIds.join(',')}` : '';
-    const amountLine = hasSuggestion ? `\n__AMOUNT__:${suggere.toFixed(2)}` : '';
-    const ligneSuggere = hasSuggestion
-      ? `\n💡 Tarif selon ${prenom || 'le chauffeur'} : ${suggere.toFixed(2)}€ (au lieu de ${montantOriginal.toFixed(2)}€)`
-      : '';
+    const suggere = parseFloat(montantSuggere.replace(',', '.'));
+    const hasSuggestion = !isNaN(suggere) && suggere > 0;
+    const qteChauffeur = hasSuggestion && prixBon > 0 ? suggere / prixBon : 0;
 
-    const montantSuggereCalc = hasSuggestion ? suggere : 0;
-    const qteSuggereCalc = hasSuggestion && prixBon > 0 ? (suggere / prixBon) : 0;
-    const qteLineEmbed = hasSuggestion ? `\n__QTE__:${qteSuggereCalc.toFixed(2)}` : '';
-    const montantLineEmbed = hasSuggestion ? `\n__MONTANT__:${montantSuggereCalc.toFixed(2)}` : '';
-    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.${idsLine}${qteLineEmbed}${montantLineEmbed}`;
+    const nom = prenom || user.email || 'Chauffeur';
+    const coursesData = [{ enl: details.split('→')[0]?.trim() || '', liv: details.split('→')[1]?.split('(')[0]?.trim() || '', qteBon: qteChauffeur, montant: suggere }];
+    const msg = buildFareSignalMessage(nom, coursesData, null, null, qteChauffeur, suggere, courseIds);
+
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
-    setTarifCheck(null);
-    setTarifIncorrectMode(false);
-    setTarifSuggere('');
+    setTarifCheck(null); setTarifIncorrectMode(false); setTarifSuggere('');
     router.replace('/');
   };
 
@@ -314,7 +321,12 @@ export default function SaisieScreen() {
           const qteChauffeur = resultatLot.courses[0].qteBonOptimise;
           const montantSuggereDB = computeMontant(qteSuggere, prixBon);
           const montantChauffeur = computeMontant(qteChauffeur, prixBon);
-          const autoMsg = `⚠️ Tarif modifié par ${prenom || user.email}\n\n${detailsCourses}\n\n📋 Base de données : ${qteSuggere} bons → ${formatEuro(montantSuggereDB)}\n✏️ Chauffeur propose : ${qteChauffeur} bons → ${formatEuro(montantChauffeur)}\n__IDS__:${savedIds.join(',')}\n__QTE__:${qteChauffeur}\n__MONTANT__:${montantChauffeur.toFixed(2)}`;
+          const nom = prenom || user.email || 'Chauffeur';
+          const coursesData = resultatLot.courses.map(c => ({
+            enl: c.lieuEnlevement, liv: c.lieuLivraison,
+            qteBon: c.qteBonOptimise, montant: computeMontant(c.qteBonOptimise, prixBon),
+          }));
+          const autoMsg = buildFareSignalMessage(nom, coursesData, qteSuggere, montantSuggereDB, qteChauffeur, montantChauffeur, savedIds);
           await supabase.from('support_messages').insert({ user_id: user.id, content: autoMsg, sender: 'user' });
         }
         setQteBonSuggere(null);

@@ -170,23 +170,14 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
           renderItem={({ item }) => {
             const isAdminMsg = item.sender === 'admin';
 
-            // Détection message de signalement tarif
-            const isFareIssue = item.content.includes('__IDS__:');
-            const courseIds = isFareIssue
-              ? (item.content.match(/__IDS__:([^\n]+)/) ?? [])[1]?.split(',').filter(Boolean) ?? []
-              : [];
-            const newQte = isFareIssue
-              ? parseFloat((item.content.match(/__QTE__:([\d.]+)/) ?? [])[1] ?? '')
-              : NaN;
-            const newMontant = isFareIssue
-              ? parseFloat((item.content.match(/__MONTANT__:([\d.]+)/) ?? [])[1] ?? '')
-              : NaN;
-            // Texte visible (sans les lignes techniques)
+            // Détection message de signalement tarif (format |||FARE_DATA:{...}|||)
+            const fareMatch = item.content.match(/\|\|\|FARE_DATA:(.+?)\|\|\|/s);
+            let fareData: { ids: string[]; qte: number; montant: number } | null = null;
+            try { if (fareMatch) fareData = JSON.parse(fareMatch[1]); } catch {}
+            const isFareIssue = !!fareData && (fareData.ids?.length ?? 0) > 0;
+            // Texte visible (sans le bloc de données)
             const visibleContent = item.content
-              .replace(/\n__IDS__:[^\n]*/g, '')
-              .replace(/\n__QTE__:[^\n]*/g, '')
-              .replace(/\n__MONTANT__:[^\n]*/g, '')
-              .replace(/\n__AMOUNT__:[^\n]*/g, '')
+              .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
               .trim();
 
             return (
@@ -195,26 +186,26 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={{ fontSize: 10, marginTop: 4, color: isAdminMsg ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {isFareIssue && courseIds.length > 0 && !isNaN(newQte) && !isNaN(newMontant) && (
+                {isFareIssue && fareData && (
                   <TouchableOpacity
-                    style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' }}
+                    style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
                     onPress={async () => {
-                      for (const cid of courseIds) {
+                      for (const cid of fareData!.ids) {
                         await supabase.from('courses').update({
-                          qte_bon: newQte,
-                          montant_achat: newMontant,
+                          qte_bon: fareData!.qte,
+                          montant_achat: fareData!.montant,
                         }).eq('id', cid);
                       }
                       await supabase.from('support_messages').insert({
                         user_id: item.user_id,
-                        content: `✅ Tarif corrigé : ${newQte} bons → ${newMontant.toFixed(2)}€ pour ${courseIds.length} course${courseIds.length > 1 ? 's' : ''}.`,
+                        content: `✅ Tarif corrigé à ${fareData!.qte} bons (${fareData!.montant.toFixed(2)}€) pour ${fareData!.ids.length} course${fareData!.ids.length > 1 ? 's' : ''}.`,
                         sender: 'admin',
                       });
                       fetchMessages(item.user_id);
                     }}
                   >
                     <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
-                      ✏️ Corriger → {newQte} bons ({newMontant.toFixed(2)}€)
+                      ✏️ Corriger à {fareData.qte} bons ({fareData.montant.toFixed(2)}€)
                     </Text>
                   </TouchableOpacity>
                 )}
