@@ -25,6 +25,7 @@ import { radius, shadow, shadowMd } from '@/lib/theme';
 import { detectDomaine } from '@/lib/domaine';
 import type { CourseInput } from '@/types/course';
 import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star, ArrowUpDown } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 
 const PRESETS = [1, 2, 2.5, 3, 5, 8];
 
@@ -54,6 +55,9 @@ export default function SaisieScreen() {
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [batch, setBatch] = useState<SimulateurCourse[]>([]);
   let batchIdCounter = batch.length;
+
+  // Vérification du tarif après saisie
+  const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string } | null>(null);
 
   const refLivraison = useRef<TextInput>(null);
   const refEnlevement = useRef<TextInput>(null);
@@ -193,6 +197,15 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
+  const signalerTarifIncorrect = async (details: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}\n\nMerci de vérifier et corriger.`;
+    await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
+    setTarifCheck(null);
+    router.replace('/');
+  };
+
   const showMotivation = (msg: string) => {
     setMotivMsg(msg);
     Animated.sequence([
@@ -251,9 +264,15 @@ export default function SaisieScreen() {
       });
       showMotivation(msg);
 
+      // Vérification du tarif — on demande après la saisie
+      const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(c.qteBonOptimise, prixBon), 0);
+      const detailsCourses = resultatLot.courses.map(c =>
+        `${c.lieuEnlevement} → ${c.lieuLivraison} (${c.qteBonOptimise} bons · ${formatEuro(computeMontant(c.qteBonOptimise, prixBon))})`
+      ).join('\n');
+      setTarifCheck({ montant: totalMontant, details: detailsCourses });
+
       setTimeout(() => {
         setFlash(false);
-        router.replace('/');
       }, 800);
     } catch {
       setError("Échec de l'enregistrement.");
@@ -558,6 +577,32 @@ export default function SaisieScreen() {
         }]}>
           <Text style={styles.motivText}>{motivMsg}</Text>
         </Animated.View>
+      )}
+
+      {/* Vérification du tarif */}
+      {tarifCheck && (
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 6 }}>
+            💰 Le tarif est-il correct ?
+          </Text>
+          <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 14, lineHeight: 20 }}>
+            Total : <Text style={{ fontWeight: '700', color: colors.text }}>{formatEuro(tarifCheck.montant)}</Text>
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: colors.green, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              onPress={() => { setTarifCheck(null); router.replace('/'); }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>✅ Oui, correct</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              onPress={() => signalerTarifIncorrect(tarifCheck.details)}
+            >
+              <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>❌ Non, signaler</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* Bouton valider */}
