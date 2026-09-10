@@ -23,6 +23,8 @@ import { Moon, Sun, Clock, Fuel, TrendingUp, FlaskConical, PenLine, Eye, EyeOff,
 import { detectDomaine } from '@/lib/domaine';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { generateMotivationMessage } from '@/lib/motivation';
+import { getUserHabits } from '@/lib/learningEngine';
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
@@ -258,6 +260,20 @@ export default function DashboardScreen() {
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
   const dateLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // Message de motivation basé sur le KPI du jour
+  const motivMsg = kpi.coursesJour > 0 ? generateMotivationMessage({
+    prenom: prenom || '',
+    bonsJour: kpi.bonsJour,
+    caJour: kpi.caJour,
+    coursesJour: kpi.coursesJour,
+    bonsMois: kpi.bonsMois,
+    monthlyGoal,
+    prixBon,
+    qteBonAjoutee: 0,
+    heureActuelle: hour,
+    habits: null,
+  }) : null;
+
   const heroColors: [string, string, string] = isDark
     ? ['#0A2818', '#134024', '#0A2818']
     : ['#0D4A28', '#1A7043', '#0F4D2C'];
@@ -424,6 +440,13 @@ export default function DashboardScreen() {
           )}
         </LinearGradient>
       </View>
+
+      {/* ── MESSAGE DE MOTIVATION ── */}
+      {motivMsg && (
+        <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: colors.card, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, borderLeftWidth: 3, borderLeftColor: colors.green }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, lineHeight: 20 }}>{motivMsg}</Text>
+        </View>
+      )}
 
       {/* ── TUILES ── */}
       <View style={styles.tilesRow}>
