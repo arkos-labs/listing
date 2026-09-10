@@ -411,6 +411,15 @@ export default function SaisieScreen() {
             placeholder="Ex. ST-LOUIS - 75010 PARIS"
             placeholderTextColor={colors.textFaint}
           />
+          {form.lieuEnlevement.length > 0 && (
+            <TouchableOpacity
+              onPress={() => { setForm(f => ({ ...f, lieuEnlevement: '', vehicule: '' })); refEnlevement.current?.focus(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ paddingHorizontal: 8 }}
+            >
+              <X size={16} color={colors.textFaint} />
+            </TouchableOpacity>
+          )}
         </View>
         {pickupOpen && pickupOptions.length > 0 ? <Dropdown options={pickupOptions} onSelect={selectPickup} colors={colors} /> : null}
       </View>
@@ -453,6 +462,15 @@ export default function SaisieScreen() {
             placeholder="Ex. BICHAT - 75018 PARIS"
             placeholderTextColor={colors.textFaint}
           />
+          {form.lieuLivraison.length > 0 && (
+            <TouchableOpacity
+              onPress={() => { setForm(f => ({ ...f, lieuLivraison: '', vehicule: '' })); refLivraison.current?.focus(); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ paddingHorizontal: 8 }}
+            >
+              <X size={16} color={colors.textFaint} />
+            </TouchableOpacity>
+          )}
         </View>
         {deliveryOpen && deliveryOptions.length > 0 ? <Dropdown options={deliveryOptions} onSelect={selectDelivery} colors={colors} /> : null}
       </View>
