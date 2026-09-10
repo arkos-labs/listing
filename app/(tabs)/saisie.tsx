@@ -226,7 +226,11 @@ export default function SaisieScreen() {
       ? `\n💡 Tarif selon ${prenom || 'le chauffeur'} : ${suggere.toFixed(2)}€ (au lieu de ${montantOriginal.toFixed(2)}€)`
       : '';
 
-    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.${idsLine}${amountLine}`;
+    const montantSuggereCalc = hasSuggestion ? suggere : 0;
+    const qteSuggereCalc = hasSuggestion && prixBon > 0 ? (suggere / prixBon) : 0;
+    const qteLineEmbed = hasSuggestion ? `\n__QTE__:${qteSuggereCalc.toFixed(2)}` : '';
+    const montantLineEmbed = hasSuggestion ? `\n__MONTANT__:${montantSuggereCalc.toFixed(2)}` : '';
+    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.${idsLine}${qteLineEmbed}${montantLineEmbed}`;
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
     setTarifCheck(null);
     setTarifIncorrectMode(false);
@@ -306,9 +310,11 @@ export default function SaisieScreen() {
       if (chauffeurAModifie && !isAdmin) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const montantSuggereAuto = formatEuro(computeMontant(qteBonSuggere!, prixBon));
-          const montantSaisi = formatEuro(totalMontant);
-          const autoMsg = `⚠️ Tarif modifié par ${prenom || user.email}\n\n${detailsCourses}\n💡 La base suggérait ${qteBonSuggere} bons (${montantSuggereAuto}), le chauffeur a saisi ${resultatLot.courses[0].qteBonOptimise} bons (${montantSaisi}).\n__IDS__:${savedIds.join(',')}\n__AMOUNT__:${resultatLot.courses[0].qteBonOptimise}`;
+          const qteSuggere = qteBonSuggere!;
+          const qteChauffeur = resultatLot.courses[0].qteBonOptimise;
+          const montantSuggereDB = computeMontant(qteSuggere, prixBon);
+          const montantChauffeur = computeMontant(qteChauffeur, prixBon);
+          const autoMsg = `⚠️ Tarif modifié par ${prenom || user.email}\n\n${detailsCourses}\n\n📋 Base de données : ${qteSuggere} bons → ${formatEuro(montantSuggereDB)}\n✏️ Chauffeur propose : ${qteChauffeur} bons → ${formatEuro(montantChauffeur)}\n__IDS__:${savedIds.join(',')}\n__QTE__:${qteChauffeur}\n__MONTANT__:${montantChauffeur.toFixed(2)}`;
           await supabase.from('support_messages').insert({ user_id: user.id, content: autoMsg, sender: 'user' });
         }
         setQteBonSuggere(null);

@@ -175,12 +175,17 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             const courseIds = isFareIssue
               ? (item.content.match(/__IDS__:([^\n]+)/) ?? [])[1]?.split(',').filter(Boolean) ?? []
               : [];
-            const suggestedAmount = isFareIssue
-              ? parseFloat((item.content.match(/__AMOUNT__:([\d.]+)/) ?? [])[1] ?? '')
+            const newQte = isFareIssue
+              ? parseFloat((item.content.match(/__QTE__:([\d.]+)/) ?? [])[1] ?? '')
+              : NaN;
+            const newMontant = isFareIssue
+              ? parseFloat((item.content.match(/__MONTANT__:([\d.]+)/) ?? [])[1] ?? '')
               : NaN;
             // Texte visible (sans les lignes techniques)
             const visibleContent = item.content
               .replace(/\n__IDS__:[^\n]*/g, '')
+              .replace(/\n__QTE__:[^\n]*/g, '')
+              .replace(/\n__MONTANT__:[^\n]*/g, '')
               .replace(/\n__AMOUNT__:[^\n]*/g, '')
               .trim();
 
@@ -190,27 +195,26 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={{ fontSize: 10, marginTop: 4, color: isAdminMsg ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
-                {isFareIssue && courseIds.length > 0 && !isNaN(suggestedAmount) && (
+                {isFareIssue && courseIds.length > 0 && !isNaN(newQte) && !isNaN(newMontant) && (
                   <TouchableOpacity
-                    style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' }}
+                    style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' }}
                     onPress={async () => {
                       for (const cid of courseIds) {
                         await supabase.from('courses').update({
-                          qte_bon: suggestedAmount,
-                          montant_achat: suggestedAmount,
+                          qte_bon: newQte,
+                          montant_achat: newMontant,
                         }).eq('id', cid);
                       }
-                      // Marquer comme corrigé en répondant
                       await supabase.from('support_messages').insert({
                         user_id: item.user_id,
-                        content: `✅ Tarif corrigé à ${suggestedAmount.toFixed(2)}€ pour ${courseIds.length} course${courseIds.length > 1 ? 's' : ''}.`,
+                        content: `✅ Tarif corrigé : ${newQte} bons → ${newMontant.toFixed(2)}€ pour ${courseIds.length} course${courseIds.length > 1 ? 's' : ''}.`,
                         sender: 'admin',
                       });
                       fetchMessages(item.user_id);
                     }}
                   >
                     <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
-                      ✏️ Corriger à {suggestedAmount.toFixed(2)}€
+                      ✏️ Corriger → {newQte} bons ({newMontant.toFixed(2)}€)
                     </Text>
                   </TouchableOpacity>
                 )}
