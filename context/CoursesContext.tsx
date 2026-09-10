@@ -11,7 +11,7 @@ interface CoursesContextValue {
   kpi: DashboardKpi;
   loading: boolean;
   error: string | null;
-  add: (input: CourseInput) => Promise<void>;
+  add: (input: CourseInput) => Promise<string>;
   importMany: (inputs: CourseInput[]) => Promise<number>;
   remove: (id: string) => Promise<void>;
   update: (id: string, updates: Partial<Course>) => Promise<void>;
@@ -61,8 +61,8 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const add = useCallback(async (input: CourseInput) => {
-    if (!user) return;
+  const add = useCallback(async (input: CourseInput): Promise<string> => {
+    if (!user) return '';
     const now = new Date().toISOString();
     const row = {
       driver_id: user.id,
@@ -79,7 +79,6 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
     };
     const { data, error: err } = await supabase.from('courses').insert(row).select('id').single();
     if (err) throw err;
-    // Optimistic: ajouter localement sans re-fetch
     const newCourse: Course = {
       id: data.id,
       dateSaisie: now,
@@ -92,6 +91,7 @@ export function CoursesProvider({ children }: { children: React.ReactNode }) {
       optimise: input.optimise ?? false,
     };
     setCourses((prev) => [newCourse, ...prev]);
+    return data.id;
   }, [user]);
 
   const importMany = useCallback(async (inputs: CourseInput[]) => {

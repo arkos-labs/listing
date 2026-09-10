@@ -58,7 +58,7 @@ export default function SaisieScreen() {
   let batchIdCounter = batch.length;
 
   // Vérification du tarif après saisie
-  const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string } | null>(null);
+  const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string; courseIds: string[] } | null>(null);
   const [tarifIncorrectMode, setTarifIncorrectMode] = useState(false);
   const [tarifSuggere, setTarifSuggere] = useState('');
 
@@ -200,16 +200,13 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
-  const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string) => {
+  const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string, courseIds: string[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const suggere = parseFloat(montantSuggere.replace(',', '.'));
-    const ligneSuggere = !isNaN(suggere) && suggere > 0
-      ? `\n💡 Tarif selon le chauffeur : ${suggere.toFixed(2)}€ (au lieu de ${montantOriginal.toFixed(2)}€)`
-      : '';
+    const hasSuggestion = !isNaN(suggere) && suggere > 0;
 
-    // Si c'est l'admin lui-même, pas besoin de s'envoyer un message
     if (user.email === 'cherkinicolas@gmail.com') {
       setTarifCheck(null);
       setTarifIncorrectMode(false);
@@ -218,7 +215,14 @@ export default function SaisieScreen() {
       return;
     }
 
-    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.`;
+    // Format structuré pour que l'admin puisse corriger en 1 clic
+    const idsLine = courseIds.length > 0 ? `\n__IDS__:${courseIds.join(',')}` : '';
+    const amountLine = hasSuggestion ? `\n__AMOUNT__:${suggere.toFixed(2)}` : '';
+    const ligneSuggere = hasSuggestion
+      ? `\n💡 Tarif selon ${prenom || 'le chauffeur'} : ${suggere.toFixed(2)}€ (au lieu de ${montantOriginal.toFixed(2)}€)`
+      : '';
+
+    const msg = `⚠️ Tarif incorrect signalé par ${prenom || user.email}\n\n${details}${ligneSuggere}\n\nMerci de vérifier et corriger.${idsLine}${amountLine}`;
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
     setTarifCheck(null);
     setTarifIncorrectMode(false);
@@ -241,8 +245,9 @@ export default function SaisieScreen() {
     if (form.qteBon <= 0 && batch.length === 0) { setError('Indiquez le nombre de bons.'); return; }
     setSaving(true);
     try {
+      const savedIds: string[] = [];
       for (const c of resultatLot.courses) {
-        await add({
+        const id = await add({
           lieuEnlevement: c.lieuEnlevement,
           lieuLivraison: c.lieuLivraison,
           qteBon: c.qteBonOptimise,
@@ -251,6 +256,7 @@ export default function SaisieScreen() {
           domaine: detectDomaine(c.lieuEnlevement, c.lieuLivraison),
           optimise: c.optimise,
         });
+        if (id) savedIds.push(id);
       }
       // Calcul du total de bons ajoutés dans cette session
       const totalBonsAjoutes = resultatLot.totalBonsOptimise;
@@ -286,10 +292,10 @@ export default function SaisieScreen() {
 
       // Vérification du tarif — on demande après la saisie
       const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(c.qteBonOptimise, prixBon), 0);
-      const detailsCourses = resultatLot.courses.map(c =>
+      const detailsCourses = resultatLot.courses.map((c, i) =>
         `${c.lieuEnlevement} → ${c.lieuLivraison} (${c.qteBonOptimise} bons · ${formatEuro(computeMontant(c.qteBonOptimise, prixBon))})`
       ).join('\n');
-      setTarifCheck({ montant: totalMontant, details: detailsCourses });
+      setTarifCheck({ montant: totalMontant, details: detailsCourses, courseIds: savedIds });
 
       setTimeout(() => {
         setFlash(false);
@@ -638,7 +644,7 @@ export default function SaisieScreen() {
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
                 onPress={() => isAdmin
-                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '')
+                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '', tarifCheck.courseIds)
                   : setTarifIncorrectMode(true)
                 }
               >
@@ -674,7 +680,7 @@ export default function SaisieScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1, backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-                  onPress={() => signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, tarifSuggere)}
+                  onPress={() => signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, tarifSuggere, tarifCheck.courseIds)}
                 >
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>📨 Envoyer</Text>
                 </TouchableOpacity>
