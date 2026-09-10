@@ -10,10 +10,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useReference } from '@/context/ReferenceContext';
 import { supabase } from '@/lib/supabase';
 import { invalidateCache } from '@/lib/supabaseSync';
-import { matchByPickupAndDelivery } from '@/lib/reference';
+import { matchByPickupAndDelivery, resolveVehicule } from '@/lib/reference';
 
 type FareRoute = { enl: string; liv: string; veh: string };
 type FareData = { ids: string[]; qte: number; montant: number; routes?: FareRoute[] };
+
+/** Message technique de signalement de tarif (visible uniquement par l'admin). */
+const isFareSignal = (m: { content: string }) => m.content.includes('|||FARE_DATA:');
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
@@ -55,14 +58,27 @@ function FareCorrectButton({
   // Lignes de référence qui alimentent le chip "Type de course" pour ce trajet.
   // On réutilise exactement le matching de la saisie (flou + véhicule canonique, 2 sens)
   // pour que le prix affiché change réellement après correction.
-  const referenceIds = (() => {
+  // Règle stricte : on ne modifie QUE le type de course concerné. Si le chauffeur
+  // n'a pas choisi de type et que le trajet en a plusieurs, on ne touche pas à la référence.
+  const { referenceIds, referenceSkipReason } = (() => {
     const ids = new Set<string>();
+    let skipReason: string | null = null;
     for (const r of fareData.routes ?? []) {
-      let rows = matchByPickupAndDelivery(referenceCourses, r.enl, r.liv, r.veh || undefined);
-      if (rows.length === 0) rows = matchByPickupAndDelivery(referenceCourses, r.liv, r.enl, r.veh || undefined);
+      let veh = r.veh?.trim() || '';
+      if (!veh) {
+        const resolved = resolveVehicule(referenceCourses, r.enl, r.liv)
+          ?? resolveVehicule(referenceCourses, r.liv, r.enl);
+        if (!resolved || resolved.ambiguous) {
+          skipReason = 'type de course non précisé par le chauffeur';
+          continue;
+        }
+        veh = resolved.vehicule;
+      }
+      let rows = matchByPickupAndDelivery(referenceCourses, r.enl, r.liv, veh);
+      if (rows.length === 0) rows = matchByPickupAndDelivery(referenceCourses, r.liv, r.enl, veh);
       for (const row of rows) ids.add(row.id);
     }
-    return Array.from(ids);
+    return { referenceIds: Array.from(ids), referenceSkipReason: skipReason };
   })();
 
   const applyCorrection = async () => {
@@ -113,6 +129,11 @@ function FareCorrectButton({
         <Text style={{ color: '#134024', fontWeight: '700', fontSize: 13 }}>
           ✅ {done.courses} course{done.courses > 1 ? 's' : ''} · {done.reference} référence{done.reference > 1 ? 's' : ''} modifiée{done.reference > 1 ? 's' : ''}
         </Text>
+        {done.reference === 0 && referenceSkipReason && (
+          <Text style={{ color: '#92400E', fontSize: 11, fontWeight: '600', marginTop: 4, textAlign: 'center' }}>
+            Référence non modifiée : {referenceSkipReason}
+          </Text>
+        )}
       </View>
     );
   }
@@ -460,6 +481,9 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
         filter: `user_id=eq.${user?.id}`,
       }, (payload) => {
         const newMsg = payload.new as Message;
+        // Les signalements de tarif sont destinés à l'admin uniquement :
+        // le chauffeur ne voit que la confirmation "✅ Tarif corrigé"
+        if (isFareSignal(newMsg)) return;
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
@@ -476,7 +500,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       .select('*')
       .eq('user_id', user?.id)
       .order('created_at', { ascending: true });
-    setMessages(data ?? []);
+    setMessages((data ?? []).filter(m => !isFareSignal(m)));
     setLoading(false);
     // Marquer les messages admin comme lus
     await supabase

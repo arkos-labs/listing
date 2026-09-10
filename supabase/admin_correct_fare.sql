@@ -57,12 +57,15 @@ begin
     get diagnostics reference_updated = row_count;
   end if;
 
-  -- c) Filet de sécurité (anciens messages sans reference_ids) : matching texte
-  if reference_updated = 0 then
+  -- c) Filet de sécurité (anciens messages sans reference_ids) : matching texte.
+  --    STRICT : même enlèvement, même livraison (2 sens) ET même type de course.
+  --    Si la course n'a pas de type, on ne touche pas à la référence.
+  if reference_updated = 0 and coalesce(array_length(reference_ids, 1), 0) = 0 then
     for r in
       select distinct lieu_enlevement, lieu_livraison, vehicule
       from courses
       where id = any(course_ids)
+        and coalesce(trim(vehicule), '') <> ''
     loop
       update reference_courses
       set qte_bon = new_qte_bon,
@@ -74,10 +77,7 @@ begin
           (lower(trim(lieu_enlevement)) = lower(trim(r.lieu_livraison))
            and lower(trim(lieu_livraison)) = lower(trim(r.lieu_enlevement)))
         )
-        and (
-          coalesce(trim(r.vehicule), '') = ''
-          or lower(trim(coalesce(vehicule, ''))) = lower(trim(r.vehicule))
-        );
+        and lower(trim(coalesce(vehicule, ''))) = lower(trim(r.vehicule));
       get diagnostics n = row_count;
       reference_updated := reference_updated + n;
     end loop;
