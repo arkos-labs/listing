@@ -48,17 +48,24 @@ function FareCorrectButton({
   const applyCorrection = async () => {
     setLoading(true);
     setErrorMsg(null);
-    const { error } = await supabase.rpc('admin_correct_fare', {
-      course_ids: fareData.ids,
-      new_qte_bon: fareData.qte,
-      new_montant_achat: fareData.montant,
-    });
-    setLoading(false);
-    if (error) {
-      setErrorMsg(error.message);
-      setConfirm(false);
-      return;
+
+    // Mise à jour directe de chaque course (RLS admin autorise cette opération)
+    let hasError = false;
+    for (const id of fareData.ids) {
+      const { error } = await supabase
+        .from('courses')
+        .update({ qte_bon: fareData.qte, montant_achat: fareData.montant })
+        .eq('id', id);
+      if (error) {
+        setErrorMsg(`Erreur sur course ${id.slice(0, 8)} : ${error.message}`);
+        hasError = true;
+        break;
+      }
     }
+
+    setLoading(false);
+    if (hasError) { setConfirm(false); return; }
+
     setDone(true);
     setConfirm(false);
     await supabase.from('support_messages').insert({
