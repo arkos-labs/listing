@@ -260,21 +260,31 @@ export default function SaisieScreen() {
     if (form.qteBon <= 0 && batch.length === 0) { setError('Indiquez le nombre de bons.'); return; }
     setSaving(true);
     try {
+      // Détecter AVANT de sauvegarder si le chauffeur a changé le tarif DB
+      const chauffeurAModifie = !isAdmin && qteBonSuggere !== null && resultatLot.courses.length === 1
+        && Math.abs(resultatLot.courses[0].qteBonOptimise - qteBonSuggere) > 0.01;
+
       const savedIds: string[] = [];
       for (const c of resultatLot.courses) {
+        // Si le chauffeur a modifié, on enregistre quand même avec le tarif de la base (pas sa modification)
+        // L'admin recevra un message et pourra corriger si besoin
+        const qteBonToSave = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+        const montantToSave = computeMontant(qteBonToSave, prixBon);
         const id = await add({
           lieuEnlevement: c.lieuEnlevement,
           lieuLivraison: c.lieuLivraison,
-          qteBon: c.qteBonOptimise,
+          qteBon: qteBonToSave,
           vehicule: c.vehicule,
-          montantAchat: computeMontant(c.qteBonOptimise, prixBon),
+          montantAchat: montantToSave,
           domaine: detectDomaine(c.lieuEnlevement, c.lieuLivraison),
           optimise: c.optimise,
         });
         if (id) savedIds.push(id);
       }
       // Calcul du total de bons ajoutés dans cette session
-      const totalBonsAjoutes = resultatLot.totalBonsOptimise;
+      const totalBonsAjoutes = chauffeurAModifie
+        ? qteBonSuggere! * resultatLot.courses.length
+        : resultatLot.totalBonsOptimise;
       setBatch([]);
       setForm({ lieuEnlevement: '', lieuLivraison: '', qteBon: 0, montantAchat: 0, vehicule: '' });
       setAutoFromBase(false);
@@ -305,16 +315,16 @@ export default function SaisieScreen() {
       });
       showMotivation(msg);
 
-      const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(c.qteBonOptimise, prixBon), 0);
-      const detailsCourses = resultatLot.courses.map((c) =>
-        `${c.lieuEnlevement} → ${c.lieuLivraison} (${c.qteBonOptimise} bons · ${formatEuro(computeMontant(c.qteBonOptimise, prixBon))})`
-      ).join('\n');
+      const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(
+        chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise, prixBon
+      ), 0);
+      const detailsCourses = resultatLot.courses.map((c) => {
+        const qte = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+        return `${c.lieuEnlevement} → ${c.lieuLivraison} (${qte} bons · ${formatEuro(computeMontant(qte, prixBon))})`;
+      }).join('\n');
 
-      // Si le chauffeur a changé la valeur suggérée par la base → signal automatique sans demander
-      const chauffeurAModifie = qteBonSuggere !== null && resultatLot.courses.length === 1
-        && Math.abs(resultatLot.courses[0].qteBonOptimise - qteBonSuggere) > 0.01;
-
-      if (chauffeurAModifie && !isAdmin) {
+      if (chauffeurAModifie) {
+        // Le chauffeur a changé la valeur → signal automatique à l'admin, sans demander
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const qteSuggere = qteBonSuggere!;
@@ -322,9 +332,10 @@ export default function SaisieScreen() {
           const montantSuggereDB = computeMontant(qteSuggere, prixBon);
           const montantChauffeur = computeMontant(qteChauffeur, prixBon);
           const nom = prenom || user.email || 'Chauffeur';
+          // Les coursesData montrent le tarif chauffeur (ce qu'il pensait), le message indique le DB tarif
           const coursesData = resultatLot.courses.map(c => ({
             enl: c.lieuEnlevement, liv: c.lieuLivraison,
-            qteBon: c.qteBonOptimise, montant: computeMontant(c.qteBonOptimise, prixBon),
+            qteBon: qteChauffeur, montant: montantChauffeur,
           }));
           const autoMsg = buildFareSignalMessage(nom, coursesData, qteSuggere, montantSuggereDB, qteChauffeur, montantChauffeur, savedIds);
           await supabase.from('support_messages').insert({ user_id: user.id, content: autoMsg, sender: 'user' });

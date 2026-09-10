@@ -42,39 +42,31 @@ function FareCorrectButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handlePress = () => {
-    Alert.alert(
-      'Corriger le tarif',
-      `Modifier ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''} à ${fareData.qte} bons (${fareData.montant.toFixed(2)}€) ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          style: 'default',
-          onPress: async () => {
-            setLoading(true);
-            const { error } = await supabase.rpc('admin_correct_fare', {
-              course_ids: fareData.ids,
-              new_qte_bon: fareData.qte,
-              new_montant_achat: fareData.montant,
-            });
-            setLoading(false);
-            if (error) {
-              Alert.alert('Erreur', `La correction a échoué : ${error.message}`);
-              return;
-            }
-            setDone(true);
-            await supabase.from('support_messages').insert({
-              user_id: userId,
-              content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ pour ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''}.`,
-              sender: 'admin',
-            });
-            onDone();
-          },
-        },
-      ]
-    );
+  const applyCorrection = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    const { error } = await supabase.rpc('admin_correct_fare', {
+      course_ids: fareData.ids,
+      new_qte_bon: fareData.qte,
+      new_montant_achat: fareData.montant,
+    });
+    setLoading(false);
+    if (error) {
+      setErrorMsg(error.message);
+      setConfirm(false);
+      return;
+    }
+    setDone(true);
+    setConfirm(false);
+    await supabase.from('support_messages').insert({
+      user_id: userId,
+      content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ pour ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''}.`,
+      sender: 'admin',
+    });
+    onDone();
   };
 
   if (done) {
@@ -85,20 +77,51 @@ function FareCorrectButton({
     );
   }
 
+  if (confirm) {
+    return (
+      <View style={{ marginTop: 10, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12, gap: 10 }}>
+        <Text style={{ color: '#92400E', fontWeight: '700', fontSize: 13, textAlign: 'center' }}>
+          Corriger à {fareData.qte} bons ({fareData.montant.toFixed(2)}€) ?
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: '#e5e7eb', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}
+            onPress={() => setConfirm(false)}
+            disabled={loading}
+          >
+            <Text style={{ color: '#374151', fontWeight: '700', fontSize: 13 }}>Annuler</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: '#1A6137', borderRadius: 8, paddingVertical: 8, alignItems: 'center', opacity: loading ? 0.6 : 1 }}
+            onPress={applyCorrection}
+            disabled={loading}
+          >
+            {loading
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>Confirmer</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <TouchableOpacity
-      style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', opacity: loading ? 0.6 : 1 }}
-      onPress={handlePress}
-      disabled={loading}
-    >
-      {loading ? (
-        <ActivityIndicator size="small" color="#fff" />
-      ) : (
+    <View style={{ marginTop: 10, gap: 6 }}>
+      {errorMsg && (
+        <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '600', textAlign: 'center' }}>
+          ❌ Erreur : {errorMsg}
+        </Text>
+      )}
+      <TouchableOpacity
+        style={{ backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' }}
+        onPress={() => setConfirm(true)}
+      >
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
           ✏️ Corriger à {fareData.qte} bons ({fareData.montant.toFixed(2)}€)
         </Text>
-      )}
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </View>
   );
 }
 
