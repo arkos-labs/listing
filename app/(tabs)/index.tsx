@@ -221,25 +221,29 @@ export default function DashboardScreen() {
           'application/octet-stream',
           'application/pdf',
         ],
-        copyToCacheDirectory: false,
+        copyToCacheDirectory: true,
         multiple: true,
       });
       if (res.canceled || !res.assets || res.assets.length === 0) return;
 
       let allInputs: Awaited<ReturnType<typeof parseExcelFile>> = [];
+      let lastReadError: string | null = null;
       for (const asset of res.assets) {
         try {
           const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
           const rows = isPdf ? await parsePdfFile(asset.uri) : await parseExcelFile(asset.uri);
           allInputs = allInputs.concat(rows);
-        } catch (fileErr) {
+        } catch (fileErr: any) {
           console.warn('[import] fichier ignoré:', asset.name, fileErr);
+          lastReadError = fileErr?.message ?? String(fileErr);
         }
       }
 
       if (allInputs.length === 0) {
-        setImportMsg('❌ Aucune ligne exploitable trouvée');
-        setTimeout(() => setImportMsg(null), 4000);
+        setImportMsg(lastReadError
+          ? `❌ Fichier illisible (${lastReadError}). Réessaie en le sélectionnant depuis "Sur mon iPhone/Android" plutôt que iCloud/Drive.`
+          : '❌ Aucune ligne exploitable trouvée');
+        setTimeout(() => setImportMsg(null), 8000);
         return;
       }
 
