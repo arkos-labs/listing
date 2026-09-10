@@ -7,7 +7,13 @@ import { Send, ArrowLeft, MessageSquare } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
+import { useReference } from '@/context/ReferenceContext';
 import { supabase } from '@/lib/supabase';
+import { invalidateCache } from '@/lib/supabaseSync';
+import { matchByPickupAndDelivery } from '@/lib/reference';
+
+type FareRoute = { enl: string; liv: string; veh: string };
+type FareData = { ids: string[]; qte: number; montant: number; routes?: FareRoute[] };
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
@@ -35,15 +41,29 @@ function FareCorrectButton({
   onDone,
   colors,
 }: {
-  fareData: { ids: string[]; qte: number; montant: number };
+  fareData: FareData;
   userId: string;
   onDone: () => void;
   colors: any;
 }) {
+  const { referenceCourses, refresh: refreshReference } = useReference();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<{ courses: number; reference: number } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Lignes de référence qui alimentent le chip "Type de course" pour ce trajet.
+  // On réutilise exactement le matching de la saisie (flou + véhicule canonique, 2 sens)
+  // pour que le prix affiché change réellement après correction.
+  const referenceIds = (() => {
+    const ids = new Set<string>();
+    for (const r of fareData.routes ?? []) {
+      let rows = matchByPickupAndDelivery(referenceCourses, r.enl, r.liv, r.veh || undefined);
+      if (rows.length === 0) rows = matchByPickupAndDelivery(referenceCourses, r.liv, r.enl, r.veh || undefined);
+      for (const row of rows) ids.add(row.id);
+    }
+    return Array.from(ids);
+  })();
 
   const applyCorrection = async () => {
     setLoading(true);
@@ -55,6 +75,7 @@ function FareCorrectButton({
       course_ids: fareData.ids,
       new_qte_bon: fareData.qte,
       new_montant_achat: fareData.montant,
+      reference_ids: referenceIds,
     });
     setLoading(false);
     setConfirm(false);
@@ -75,6 +96,9 @@ function FareCorrectButton({
     }
 
     setDone({ courses: coursesUpdated, reference: referenceUpdated });
+    // Vider le cache local de la référence pour que la saisie affiche le nouveau prix
+    await invalidateCache();
+    refreshReference();
     await supabase.from('support_messages').insert({
       user_id: userId,
       content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ (${coursesUpdated} course${coursesUpdated > 1 ? 's' : ''} modifiée${coursesUpdated > 1 ? 's' : ''}${referenceUpdated > 0 ? `, référence mise à jour` : ''}).`,
@@ -285,7 +309,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
 
             // Détection message de signalement tarif (format |||FARE_DATA:{...}|||)
             const fareMatch = item.content.match(/\|\|\|FARE_DATA:(.+?)\|\|\|/s);
-            let fareData: { ids: string[]; qte: number; montant: number } | null = null;
+            let fareData: FareData | null = null;
             try { if (fareMatch) fareData = JSON.parse(fareMatch[1]); } catch {}
             const isFareIssue = !!fareData && (fareData.ids?.length ?? 0) > 0;
             // Texte visible (sans le bloc de données)

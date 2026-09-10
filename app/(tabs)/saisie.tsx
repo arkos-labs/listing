@@ -58,7 +58,7 @@ export default function SaisieScreen() {
   let batchIdCounter = batch.length;
 
   // Vérification du tarif après saisie
-  const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string; courseIds: string[] } | null>(null);
+  const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string; courseIds: string[]; routes: { enl: string; liv: string; veh: string }[] } | null>(null);
   const [tarifIncorrectMode, setTarifIncorrectMode] = useState(false);
   const [tarifSuggere, setTarifSuggere] = useState('');
   // Valeur suggérée par la base (pour détecter si le chauffeur l'a changée)
@@ -204,9 +204,11 @@ export default function SaisieScreen() {
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
+  type FareRoute = { enl: string; liv: string; veh: string };
+
   const buildFareSignalMessage = (
     nomChauffeur: string,
-    courses: { enl: string; liv: string; qteBon: number; montant: number }[],
+    courses: { enl: string; liv: string; veh: string; qteBon: number; montant: number }[],
     qteDB: number | null,
     montantDB: number | null,
     qteChauffeur: number,
@@ -214,16 +216,18 @@ export default function SaisieScreen() {
     courseIds: string[],
   ) => {
     const lignesCourses = courses.map(c =>
-      `• ${c.enl} → ${c.liv}\n  ${c.qteBon} bons · ${c.montant.toFixed(2)}€`
+      `• ${c.enl} → ${c.liv}${c.veh ? ` (${c.veh})` : ''}\n  ${c.qteBon} bons · ${c.montant.toFixed(2)}€`
     ).join('\n');
     const comparaison = qteDB !== null
       ? `\n📋 Tarif base de données : ${qteDB} bons → ${montantDB?.toFixed(2)}€\n✏️ Tarif chauffeur : ${qteChauffeur} bons → ${montantChauffeur.toFixed(2)}€`
       : `\n✏️ Tarif proposé par ${nomChauffeur} : ${qteChauffeur} bons → ${montantChauffeur.toFixed(2)}€`;
-    const data = JSON.stringify({ ids: courseIds, qte: qteChauffeur, montant: montantChauffeur });
+    // `routes` permet à l'admin de retrouver les lignes de référence (chips) avec le même matching que la saisie
+    const routes: FareRoute[] = courses.map(c => ({ enl: c.enl, liv: c.liv, veh: c.veh }));
+    const data = JSON.stringify({ ids: courseIds, qte: qteChauffeur, montant: montantChauffeur, routes });
     return `⚠️ Tarif incorrect — ${nomChauffeur}\n\n${lignesCourses}${comparaison}\n\n|||FARE_DATA:${data}|||`;
   };
 
-  const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string, courseIds: string[]) => {
+  const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string, courseIds: string[], routes: FareRoute[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -237,7 +241,7 @@ export default function SaisieScreen() {
     const qteChauffeur = hasSuggestion && prixBon > 0 ? suggere / prixBon : 0;
 
     const nom = prenom || user.email || 'Chauffeur';
-    const coursesData = [{ enl: details.split('→')[0]?.trim() || '', liv: details.split('→')[1]?.split('(')[0]?.trim() || '', qteBon: qteChauffeur, montant: suggere }];
+    const coursesData = routes.map(r => ({ ...r, qteBon: qteChauffeur, montant: suggere }));
     const msg = buildFareSignalMessage(nom, coursesData, null, null, qteChauffeur, suggere, courseIds);
 
     await supabase.from('support_messages').insert({ user_id: user.id, content: msg, sender: 'user' });
@@ -334,7 +338,7 @@ export default function SaisieScreen() {
           const nom = prenom || user.email || 'Chauffeur';
           // Les coursesData montrent le tarif chauffeur (ce qu'il pensait), le message indique le DB tarif
           const coursesData = resultatLot.courses.map(c => ({
-            enl: c.lieuEnlevement, liv: c.lieuLivraison,
+            enl: c.lieuEnlevement, liv: c.lieuLivraison, veh: c.vehicule || '',
             qteBon: qteChauffeur, montant: montantChauffeur,
           }));
           const autoMsg = buildFareSignalMessage(nom, coursesData, qteSuggere, montantSuggereDB, qteChauffeur, montantChauffeur, savedIds);
@@ -344,7 +348,10 @@ export default function SaisieScreen() {
         setTimeout(() => { setFlash(false); router.replace('/'); }, 800);
       } else {
         // Sinon on demande si le tarif est correct (flow normal)
-        setTarifCheck({ montant: totalMontant, details: detailsCourses, courseIds: savedIds });
+        setTarifCheck({
+          montant: totalMontant, details: detailsCourses, courseIds: savedIds,
+          routes: resultatLot.courses.map(c => ({ enl: c.lieuEnlevement, liv: c.lieuLivraison, veh: c.vehicule || '' })),
+        });
         setQteBonSuggere(null);
         setTimeout(() => { setFlash(false); }, 800);
       }
@@ -707,7 +714,7 @@ export default function SaisieScreen() {
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
                 onPress={() => isAdmin
-                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '', tarifCheck.courseIds)
+                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '', tarifCheck.courseIds, tarifCheck.routes)
                   : setTarifIncorrectMode(true)
                 }
               >
@@ -743,7 +750,7 @@ export default function SaisieScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ flex: 1, backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-                  onPress={() => signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, tarifSuggere, tarifCheck.courseIds)}
+                  onPress={() => signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, tarifSuggere, tarifCheck.courseIds, tarifCheck.routes)}
                 >
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>📨 Envoyer</Text>
                 </TouchableOpacity>
