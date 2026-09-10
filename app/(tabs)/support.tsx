@@ -190,11 +190,14 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                   <TouchableOpacity
                     style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
                     onPress={async () => {
-                      for (const cid of fareData!.ids) {
-                        await supabase.from('courses').update({
-                          qte_bon: fareData!.qte,
-                          montant_achat: fareData!.montant,
-                        }).eq('id', cid);
+                      const { error } = await supabase.rpc('admin_correct_fare', {
+                        course_ids: fareData!.ids,
+                        new_qte_bon: fareData!.qte,
+                        new_montant_achat: fareData!.montant,
+                      });
+                      if (error) {
+                        console.error('Correction échouée:', error.message);
+                        return;
                       }
                       await supabase.from('support_messages').insert({
                         user_id: item.user_id,
