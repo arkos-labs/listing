@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
+  FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
 import { Send, ArrowLeft, MessageSquare } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -27,6 +27,80 @@ type Conversation = {
   last_at: string;
   unread: number;
 };
+
+// ─── BOUTON CORRECTION TARIF ─────────────────────────────────────────────────
+function FareCorrectButton({
+  fareData,
+  userId,
+  onDone,
+  colors,
+}: {
+  fareData: { ids: string[]; qte: number; montant: number };
+  userId: string;
+  onDone: () => void;
+  colors: any;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handlePress = () => {
+    Alert.alert(
+      'Corriger le tarif',
+      `Modifier ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''} à ${fareData.qte} bons (${fareData.montant.toFixed(2)}€) ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          style: 'default',
+          onPress: async () => {
+            setLoading(true);
+            const { error } = await supabase.rpc('admin_correct_fare', {
+              course_ids: fareData.ids,
+              new_qte_bon: fareData.qte,
+              new_montant_achat: fareData.montant,
+            });
+            setLoading(false);
+            if (error) {
+              Alert.alert('Erreur', `La correction a échoué : ${error.message}`);
+              return;
+            }
+            setDone(true);
+            await supabase.from('support_messages').insert({
+              user_id: userId,
+              content: `✅ Tarif corrigé : ${fareData.qte} bons · ${fareData.montant.toFixed(2)}€ pour ${fareData.ids.length} course${fareData.ids.length > 1 ? 's' : ''}.`,
+              sender: 'admin',
+            });
+            onDone();
+          },
+        },
+      ]
+    );
+  };
+
+  if (done) {
+    return (
+      <View style={{ marginTop: 10, backgroundColor: '#d1fae5', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' }}>
+        <Text style={{ color: '#134024', fontWeight: '700', fontSize: 13 }}>✅ Tarif corrigé</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', opacity: loading ? 0.6 : 1 }}
+      onPress={handlePress}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color="#fff" />
+      ) : (
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+          ✏️ Corriger à {fareData.qte} bons ({fareData.montant.toFixed(2)}€)
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 // ─── VUE ADMIN (cherkinicolas@gmail.com) ────────────────────────────────────
 function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
@@ -187,30 +261,12 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
                 {isFareIssue && fareData && (
-                  <TouchableOpacity
-                    style={{ marginTop: 10, backgroundColor: '#1A6137', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
-                    onPress={async () => {
-                      const { error } = await supabase.rpc('admin_correct_fare', {
-                        course_ids: fareData!.ids,
-                        new_qte_bon: fareData!.qte,
-                        new_montant_achat: fareData!.montant,
-                      });
-                      if (error) {
-                        console.error('Correction échouée:', error.message);
-                        return;
-                      }
-                      await supabase.from('support_messages').insert({
-                        user_id: item.user_id,
-                        content: `✅ Tarif corrigé à ${fareData!.qte} bons (${fareData!.montant.toFixed(2)}€) pour ${fareData!.ids.length} course${fareData!.ids.length > 1 ? 's' : ''}.`,
-                        sender: 'admin',
-                      });
-                      fetchMessages(item.user_id);
-                    }}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
-                      ✏️ Corriger à {fareData.qte} bons ({fareData.montant.toFixed(2)}€)
-                    </Text>
-                  </TouchableOpacity>
+                  <FareCorrectButton
+                    fareData={fareData}
+                    userId={item.user_id}
+                    onDone={() => fetchMessages(item.user_id)}
+                    colors={colors}
+                  />
                 )}
               </View>
             );
