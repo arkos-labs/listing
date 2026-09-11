@@ -75,7 +75,6 @@ const HOSPITALS_MERGE_ALL: { match: string; canonical: string }[] = [
   { match: 'BIC[EÊÈ]TRE', canonical: 'BICETRE' },
   { match: 'BICHAT', canonical: 'BICHAT' },
   { match: 'NECKER', canonical: 'NECKER' },
-  { match: 'LARIBOISI[EÈ]RE', canonical: 'LARIBOISIERE' },
   { match: 'AVICENNE', canonical: 'AVICENNE' },
   { match: 'ROTHSCHILD', canonical: 'ROTHSCHILD' },
   { match: 'PITI[EÉÈ](?:[\\s-]?SALP[EÉÊÈ]TRI[EÈ]RE)?|SALP[EÉÊÈ]TRI[EÈ]RE', canonical: 'PITIE SALPETRIERE' },
@@ -103,6 +102,7 @@ const MERGE_ALL_OVERRIDES: Override[] = HOSPITALS_MERGE_ALL.map(({ match, canoni
  * service.
  */
 const MISC_OVERRIDES: Override[] = [
+  [/^[\s\S]*?(?:^|\s|[-_/'".,])LARIB(?:OISI[EÈ]RE|OIERE)?[a-z]*[\s\S]*$/i, 'LARIBOISIERE - 75010 PARIS'],
   [/RUNGIS\s*[/\\]\s*PLATEAU\s+TECHNIQUE/i, 'RUNGIS'],
   [/BOISSY\s+LOG\b/i, 'BOISSY ST-LEGER'],
   [/\+?H\s+A\s+D\b/i, 'HAD'],
