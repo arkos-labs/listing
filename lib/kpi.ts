@@ -15,10 +15,13 @@ export function computeKpi(courses: Course[]): DashboardKpi {
   let bonsMois = 0;
 
   for (const c of courses) {
-    const iso = c.dateSaisie; // "2026-07-15T..."
     const ca = c.montantAchat;
-    const isToday = iso.startsWith(todayPrefix);
-    const isMonth = isToday || iso.startsWith(monthPrefix);
+    
+    // Parse en date locale pour éviter les décalages UTC (ex: 01h du mat en France = 23h la veille en UTC)
+    const d = new Date(c.dateSaisie);
+    const isToday = d.getFullYear() === y && d.getMonth() === mo && d.getDate() === day;
+    const isMonth = d.getFullYear() === y && d.getMonth() === mo;
+    
     if (isToday) {
       coursesJour += 1;
       caJour += ca;
