@@ -336,6 +336,21 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       unread: msgMap.get(p.id)?.unread ?? 0,
     }));
 
+    // Ajouter les utilisateurs qui ont envoyé des messages mais qui ne sont pas dans profiles (ex: admin)
+    const profileIds = new Set(convs.map(c => c.user_id));
+    for (const [userId, meta] of msgMap.entries()) {
+      if (!profileIds.has(userId)) {
+        convs.push({
+          user_id: userId,
+          prenom: 'Moi (Admin)',
+          email: '',
+          last_message: meta.last_message,
+          last_at: meta.last_at,
+          unread: meta.unread,
+        });
+      }
+    }
+
     // Trier : non lus en premier → avec messages (par date récente) → sans message
     convs.sort((a, b) => {
       const aHasMsg = !!a.last_at;

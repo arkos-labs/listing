@@ -275,7 +275,7 @@ export default function SaisieScreen() {
     setSaving(true);
     try {
       // Détecter AVANT de sauvegarder si le chauffeur a changé le tarif DB
-      const chauffeurAModifie = !isAdmin && qteBonSuggere !== null && resultatLot.courses.length === 1
+      const chauffeurAModifie = qteBonSuggere !== null && resultatLot.courses.length === 1
         && Math.abs(resultatLot.courses[0].qteBonOptimise - qteBonSuggere) > 0.01;
 
       const savedIds: string[] = [];
