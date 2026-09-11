@@ -190,6 +190,83 @@ function FareCorrectButton({
   );
 }
 
+// ─── BOUTON AJOUT NOUVELLE COURSE ──────────────────────────────────────────────
+function NewRouteAddButton({
+  routeData,
+  userId,
+  onDone,
+}: {
+  routeData: { ids: string[]; routes: { enl: string; liv: string; veh: string; qteBon: number; montant: number }[] };
+  userId: string;
+  onDone: () => void;
+}) {
+  const { importFiles } = useReference();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const applyAdd = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const inputs = routeData.routes.map(r => ({
+        lieuEnlevement: r.enl,
+        lieuLivraison: r.liv,
+        vehicule: r.veh || undefined,
+        qteBon: r.qteBon,
+      }));
+      const res = await importFiles(inputs);
+      if (res.errors > 0 && res.inserted === 0) {
+        setErrorMsg(res.errorMessage || 'Erreur lors de l\'ajout');
+        setLoading(false);
+        return;
+      }
+      setDone(true);
+      await supabase.from('support_messages').insert({
+        user_id: userId,
+        content: `✅ Nouvelle course ajoutée à la base de référence (${res.inserted} insérée${res.inserted > 1 ? 's' : ''}, ${res.duplicates + res.alreadyInDb} existante${res.duplicates + res.alreadyInDb > 1 ? 's' : ''}).`,
+        sender: 'admin',
+      });
+      onDone();
+    } catch (e: any) {
+      setErrorMsg(e.message);
+    }
+    setLoading(false);
+  };
+
+  if (done) {
+    return (
+      <View style={{ marginTop: 10, backgroundColor: '#dbeafe', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' }}>
+        <Text style={{ color: '#1e40af', fontWeight: '700', fontSize: 13 }}>
+          ✅ Ajouté à la base de référence
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ marginTop: 10, gap: 6 }}>
+      {errorMsg && (
+        <Text style={{ color: '#dc2626', fontSize: 11, fontWeight: '600', textAlign: 'center' }}>
+          ❌ Erreur : {errorMsg}
+        </Text>
+      )}
+      <TouchableOpacity
+        style={{ backgroundColor: '#1d4ed8', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', opacity: loading ? 0.6 : 1 }}
+        onPress={applyAdd}
+        disabled={loading}
+      >
+        {loading
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>
+            ➕ Ajouter à la base
+          </Text>
+        }
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── VUE ADMIN (cherkinicolas@gmail.com) ────────────────────────────────────
 function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const router = useRouter();
@@ -337,6 +414,13 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             let fareData: FareData | null = null;
             try { if (fareMatch) fareData = JSON.parse(fareMatch[1]); } catch {}
             const isFareIssue = !!fareData && (fareData.ids?.length ?? 0) > 0;
+            
+            // Détection message course hors base (format |||NEW_ROUTE:{...}|||)
+            const newRouteMatch = item.content.match(/\|\|\|NEW_ROUTE:(.+?)\|\|\|/s);
+            let newRouteData: any = null;
+            try { if (newRouteMatch) newRouteData = JSON.parse(newRouteMatch[1]); } catch {}
+            const isNewRouteIssue = !!newRouteData && (newRouteData.routes?.length ?? 0) > 0;
+
             // Texte visible (sans les blocs de données techniques)
             const visibleContent = item.content
               .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
@@ -355,6 +439,13 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                     userId={item.user_id}
                     onDone={() => fetchMessages(item.user_id)}
                     colors={colors}
+                  />
+                )}
+                {isNewRouteIssue && newRouteData && (
+                  <NewRouteAddButton
+                    routeData={newRouteData}
+                    userId={item.user_id}
+                    onDone={() => fetchMessages(item.user_id)}
                   />
                 )}
               </View>

@@ -9,8 +9,8 @@ import { useGoal } from '@/context/GoalContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   suggestLocations,
-  matchByPickup,
-  matchByDelivery,
+  matchLocationBidirectional,
+  resolveQte,
   resolveQteBidirectional,
   listVehiculesForRouteBidirectional,
   LocationOption,
@@ -72,26 +72,28 @@ export default function SaisieScreen() {
   const { isDark } = useTheme();
   const styles = useMemo(() => makeStyles(colors, isDark), [colors, isDark]);
 
-  // Pool pour enlèvement : si livraison renseignée → filtré par livraison, sinon tout
+  // Pool pour enlèvement : si livraison renseignée → filtré par toutes les courses liées, sinon tout
   const pickupPool = useMemo(
-    () => (form.lieuLivraison.trim().length >= 2 ? matchByDelivery(referenceCourses, form.lieuLivraison) : referenceCourses),
+    () => (form.lieuLivraison.trim().length >= 2 ? matchLocationBidirectional(referenceCourses, form.lieuLivraison) : referenceCourses),
     [referenceCourses, form.lieuLivraison]
   );
 
   const pickupOptions = useMemo<LocationOption[]>(
-    () => suggestLocations(pickupPool, 'lieuEnlevement', form.lieuEnlevement),
-    [pickupPool, form.lieuEnlevement]
+    () => suggestLocations(pickupPool, form.lieuEnlevement)
+            .filter(o => o.value !== form.lieuLivraison),
+    [pickupPool, form.lieuEnlevement, form.lieuLivraison]
   );
 
-  // Pool pour livraison : si enlèvement renseigné → filtré par enlèvement, sinon tout
+  // Pool pour livraison : si enlèvement renseigné → filtré par toutes les courses liées, sinon tout
   const deliveryPool = useMemo(
-    () => (form.lieuEnlevement.trim().length >= 2 ? matchByPickup(referenceCourses, form.lieuEnlevement) : referenceCourses),
+    () => (form.lieuEnlevement.trim().length >= 2 ? matchLocationBidirectional(referenceCourses, form.lieuEnlevement) : referenceCourses),
     [referenceCourses, form.lieuEnlevement]
   );
 
   const deliveryOptions = useMemo<LocationOption[]>(
-    () => suggestLocations(deliveryPool, 'lieuLivraison', form.lieuLivraison),
-    [deliveryPool, form.lieuLivraison]
+    () => suggestLocations(deliveryPool, form.lieuLivraison)
+            .filter(o => o.value !== form.lieuEnlevement),
+    [deliveryPool, form.lieuLivraison, form.lieuEnlevement]
   );
 
   // Types de course disponibles — cherche dans les deux sens (A→B puis B→A)
@@ -244,11 +246,6 @@ export default function SaisieScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    if (user.email === 'cherkinicolas@gmail.com') {
-      setTarifCheck(null); setTarifIncorrectMode(false); setTarifSuggere('');
-      router.replace('/'); return;
-    }
-
     const suggere = parseFloat(montantSuggere.replace(',', '.'));
     const hasSuggestion = !isNaN(suggere) && suggere > 0;
     const qteChauffeur = hasSuggestion && prixBon > 0 ? suggere / prixBon : 0;
@@ -347,7 +344,7 @@ export default function SaisieScreen() {
         try {
           const horsBase = resultatLot.courses
             .map((c, i) => ({ c, id: savedIds[i] }))
-            .filter(({ c }) => !resolveQteBidirectional(referenceCourses, c.lieuEnlevement, c.lieuLivraison, c.vehicule || undefined));
+            .filter(({ c }) => !resolveQte(referenceCourses, c.lieuEnlevement, c.lieuLivraison, c.vehicule || undefined));
           if (horsBase.length > 0) {
             const { data: { user: u } } = await supabase.auth.getUser();
             if (u) {
@@ -751,13 +748,10 @@ export default function SaisieScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#fee2e2', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-                onPress={() => isAdmin
-                  ? signalerTarifIncorrect(tarifCheck.details, tarifCheck.montant, '', tarifCheck.courseIds, tarifCheck.routes)
-                  : setTarifIncorrectMode(true)
-                }
+                onPress={() => setTarifIncorrectMode(true)}
               >
                 <Text style={{ color: '#dc2626', fontWeight: '800', fontSize: 14 }}>
-                  {isAdmin ? '✏️ À corriger' : '❌ Non'}
+                  ❌ Non
                 </Text>
               </TouchableOpacity>
             </View>

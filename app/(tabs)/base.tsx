@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useReference } from '@/context/ReferenceContext';
@@ -12,12 +12,13 @@ import { radius, shadow } from '@/lib/theme';
 import type { ReferenceCourse } from '@/types/course';
 import type { Domaine } from '@/lib/domaine';
 import { detectDomaine } from '@/lib/domaine';
+import { matchHospitalQuery } from '@/lib/hospitalGroup';
 
 function getEffectiveDomaine(c: ReferenceCourse): Domaine {
   if (c.domaine) return c.domaine;
   return detectDomaine(c.lieuEnlevement ?? '', c.lieuLivraison ?? '');
 }
-import { Loader2, Plus, X, Search, Upload, Database, ArrowRight } from 'lucide-react-native';
+import { Loader2, Plus, X, Search, Upload, Database, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { CANONICAL_VEHICULES, canonicalizeVehicule } from '@/lib/vehicule';
 
 export default function BaseScreen() {
@@ -28,6 +29,7 @@ export default function BaseScreen() {
   const [query, setQuery] = useState('');
   const [domaineFilter, setDomaineFilter] = useState<'all' | Domaine | 'suiveuse' | 'nuit'>('all');
   const [editingRow, setEditingRow] = useState<Partial<ReferenceCourse> | null>(null);
+  const [hospitalExpanded, setHospitalExpanded] = useState(false);
 
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -41,6 +43,19 @@ export default function BaseScreen() {
   }, [referenceCourses, query, domaineFilter]);
 
   const totalQte = useMemo(() => filtered.reduce((sum, c) => sum + (c.qteBon || 0), 0), [filtered]);
+
+  // Si la recherche correspond à un hôpital connu, on regroupe tous les
+  // résultats sous une seule carte dépliable — l'affichage est consolidé,
+  // mais chaque course garde son propre tarif (rien n'est fusionné en base).
+  const matchedHospital = useMemo(() => matchHospitalQuery(query), [query]);
+  const hospitalQteRange = useMemo(() => {
+    if (!matchedHospital || filtered.length === 0) return null;
+    const qtes = filtered.map((c) => c.qteBon || 0);
+    return { min: Math.min(...qtes), max: Math.max(...qtes) };
+  }, [matchedHospital, filtered]);
+
+  // Repart replié à chaque nouvelle recherche d'hôpital.
+  useEffect(() => { setHospitalExpanded(false); }, [matchedHospital]);
 
   const countMedical = useMemo(() => referenceCourses.filter((c) => getEffectiveDomaine(c) === 'medical').length, [referenceCourses]);
   const countCourse = useMemo(() => referenceCourses.filter((c) => getEffectiveDomaine(c) === 'courseCourse').length, [referenceCourses]);
@@ -197,6 +212,30 @@ export default function BaseScreen() {
           SectionSeparatorComponent={() => <View style={{ height: 6 }} />}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={renderItem}
+        />
+      ) : matchedHospital && filtered.length > 0 ? (
+        <FlatList
+          data={hospitalExpanded ? filtered : []}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          renderItem={renderItem}
+          ListHeaderComponent={
+            <TouchableOpacity
+              style={[styles.hospitalCard, shadow, hospitalExpanded && { marginBottom: 12 }]}
+              onPress={() => setHospitalExpanded((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.hospitalName}>{matchedHospital}</Text>
+                <Text style={styles.hospitalSub}>
+                  {filtered.length} course{filtered.length > 1 ? 's' : ''} trouvée{filtered.length > 1 ? 's' : ''}
+                  {hospitalQteRange ? ` · ${hospitalQteRange.min === hospitalQteRange.max ? formatQte(hospitalQteRange.min) : `${formatQte(hospitalQteRange.min)}–${formatQte(hospitalQteRange.max)}`} bon${hospitalQteRange.max > 1 ? 's' : ''} selon la destination` : ''}
+                </Text>
+              </View>
+              {hospitalExpanded ? <ChevronUp size={18} color={colors.textMuted} /> : <ChevronDown size={18} color={colors.textMuted} />}
+            </TouchableOpacity>
+          }
         />
       ) : filtered.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -355,6 +394,9 @@ function makeStyles(colors: any) {
     filterChipTextActive: { color: '#fff' },
     resultBadge: { backgroundColor: colors.greenSoft, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 10 },
     resultBadgeText: { color: colors.greenDark, fontSize: 13, fontWeight: '800' },
+    hospitalCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card, borderRadius: radius.card, paddingHorizontal: 16, paddingVertical: 14 },
+    hospitalName: { fontSize: 16, fontWeight: '900', color: colors.text },
+    hospitalSub: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '600' },
     sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 2, marginBottom: 8 },
     sectionHeadTitle: { fontSize: 15, fontWeight: '900', color: colors.text, flex: 1 },
     sectionHeadBadge: { backgroundColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },

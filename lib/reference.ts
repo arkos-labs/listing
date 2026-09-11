@@ -249,6 +249,11 @@ export function listVehiculesForRouteBidirectional(
   return { options: reversed, reversed: reversed.length > 0 };
 }
 
+export function matchLocationBidirectional(courses: ReferenceCourse[], query: string): ReferenceCourse[] {
+  if (!query.trim()) return [];
+  return courses.filter((c) => includesNormalized(c.lieuEnlevement, query) || includesNormalized(c.lieuLivraison, query));
+}
+
 export interface LocationOption {
   value: string;
   count: number;
@@ -258,21 +263,21 @@ export interface LocationOption {
  * Auto-complétion: renvoie les lieux (enlèvement ou livraison) déjà vus dans
  * la base qui correspondent à ce que l'utilisateur tape, pour éviter de
  * retaper le nom en entier. Triés par fréquence (les plus courants d'abord).
- * `pool` permet de restreindre la recherche (ex: seulement les livraisons
- * déjà associées au lieu d'enlèvement en cours de saisie).
+ * Recherche de façon bidirectionnelle (enlèvement ou livraison) car une
+ * course peut être effectuée dans les deux sens.
  */
 export function suggestLocations(
   pool: ReferenceCourse[],
-  field: 'lieuEnlevement' | 'lieuLivraison',
   query: string,
   limit = 6
 ): LocationOption[] {
   const q = query.trim();
   const counts = new Map<string, LocationOption>();
-  for (const c of pool) {
-    const v = (c[field] ?? '').trim();
-    if (!v) continue;
-    if (q && !includesNormalized(v, q)) continue;
+
+  const add = (v: string) => {
+    v = (v ?? '').trim();
+    if (!v) return;
+    if (q && !includesNormalized(v, q)) return;
     const key = normalize(v);
     const existing = counts.get(key);
     if (existing) {
@@ -280,7 +285,13 @@ export function suggestLocations(
     } else {
       counts.set(key, { value: v, count: 1 });
     }
+  };
+
+  for (const c of pool) {
+    add(c.lieuEnlevement);
+    add(c.lieuLivraison);
   }
+
   return Array.from(counts.values())
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
     .slice(0, limit);

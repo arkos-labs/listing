@@ -1,53 +1,108 @@
 /**
  * Normalise un lieu brut issu d'un fichier listing transporteur.
  *
- * Corrige uniquement les VARIANTES DE NOM pour un même établissement
- * (ex: "SAINT ANTOINE" = "ST ANTOINE", "TRI ST-LOUIS" = "ST-LOUIS").
+ * Fusionne tous les services d'un même hôpital vers son nom canonique
+ * (ex: "BICHAT EFS", "BICHAT CDT", "CENTRE DE TRI BICHAT" → tous "BICHAT").
  *
- * Les services internes (MYCOBACTERIOLOGIE, PHARMACIE, EFS, BACTERIOLOGIE…)
- * sont CONSERVÉS car ils différencient les courses et font varier le prix.
+ * Cette fusion est volontaire : sur l'historique des courses de référence
+ * (voir analyse du 2026-09-11 sur reference_courses), le tarif d'une course
+ * ne dépend PAS du service précisé dans le libellé — seul le type de course
+ * (véhicule : EXPRESS / URGENCE VITALE / NUIT / DIMANCHE ET JF / PROGRAMME…)
+ * fait varier le prix. Fusionner les services n'affecte donc pas le tarif.
+ *
+ * SEULE EXCEPTION CONNUE : Henri Mondor. Le service Biochimie y a un tarif
+ * réellement plus élevé que les autres services (~+40%, confirmé sur
+ * plusieurs partenaires à véhicule identique) → "MONDOR BIOCHIMIE" est
+ * conservé séparé de "MONDOR" (voir MONDOR_OVERRIDES ci-dessous).
  *
  * Exemples:
- *   "TRI  ST-LOUIS - 75010 PARIS"              → "ST-LOUIS - 75010 PARIS"
- *   "BICHAT MYCOBACTERIOLOGIE - 75018 PARIS 18" → "BICHAT MYCOBACTERIOLOGIE - 75018 PARIS 18"
- *   "SAINT ANTOINE EFS - 75012 PARIS 12"        → "ST ANTOINE EFS - 75012 PARIS 12"
- *   "BOISSY LOG - 94470 BOISSY SAINT LEGER"     → "BOISSY ST-LEGER - 94470 BOISSY SAINT LEGER"
- *   "LOGE ACCUEIL - CHARLES FOIX - 94200 IVRY"  → "CHARLES FOIX - 94200 IVRY SUR SEINE"
+ *   "TRI  ST-LOUIS - 75010 PARIS"                → "ST-LOUIS - 75010 PARIS"
+ *   "BICHAT EFS - 75018 PARIS 18"                → "BICHAT - 75018 PARIS 18"
+ *   "SAINT ANTOINE EFS - 75012 PARIS 12"         → "ST ANTOINE - 75012 PARIS 12"
+ *   "MONDOR BIOCHIMIE - 94010 CRETEIL"           → "MONDOR BIOCHIMIE - 94010 CRETEIL" (conservé)
+ *   "COURBE MONDOR EFS - 94010 CRETEIL"          → "MONDOR - 94010 CRETEIL"
+ *   "BOISSY LOG - 94470 BOISSY SAINT LEGER"      → "BOISSY ST-LEGER - 94470 BOISSY SAINT LEGER"
+ *   "LOGE ACCUEIL - CHARLES FOIX - 94200 IVRY"   → "CHARLES FOIX - 94200 IVRY SUR SEINE"
  */
 
 type Override = [RegExp, string];
 
-/**
- * Overrides de NOM DE LIEU uniquement — corrige les variantes orthographiques
- * ou les préfixes parasites pour qu'un même établissement ait toujours le
- * même nom en base. Ne touche PAS aux services.
+/** Consomme tout le libellé (préfixes/suffixes parasites, service, etc.) jusqu'au
+ *  code postal ou à la fin de chaîne, à condition qu'il contienne `matchSrc`.
+ *  On n'utilise pas \b car \b gère mal les accents (É est un non-word en JS).
  */
-const MANUAL_OVERRIDES: Override[] = [
-  // Centres de tri → nom de l'hôpital seul (TRI est un préfixe technique)
-  [/CENTRE\s+DE\s+TRI\s+TROUSS+EAU\w*/i, 'TROUSSEAU'],
-  [/CENTRE\s+DE\s+TRI\s+BICHAT\w*/i, 'BICHAT'],
-  [/CENTRE\s+DE\s+TRI\s+LARIBOISIERE\w*/i, 'LARIBOISIERE'],
-  [/TRI\s+(?:SAINT|ST)[\s-]+LOUIS/i, 'ST-LOUIS'],
+function mergeAllPattern(matchSrc: string): RegExp {
+  return new RegExp(`^[\\s\\S]*?(?:^|\\s|[-_/'".,])(?:${matchSrc})(?:\\s|[-_/'".,]|$)[\\s\\S]*?(?=\\s*[-–]\\s*\\d{5}|$)`, 'i');
+}
 
-  // ST-LOUIS : unifier l'orthographe (SAINT LOUIS / ST LOUIS → ST-LOUIS)
-  [/(?:SAINT|ST)\s+LOUIS\b/i, 'ST-LOUIS'],
+// ---------------------------------------------------------------------------
+// Henri Mondor : cas à part (voir doc en tête de fichier). Biochimie garde son
+// libellé (et donc son propre tarif de référence) ; tout le reste fusionne
+// vers "MONDOR". L'ordre compte : la règle Biochimie doit être testée AVANT
+// la fusion générale de MANUAL_OVERRIDES ci-dessous.
+// ---------------------------------------------------------------------------
+const MONDOR_OVERRIDES: Override[] = [
+  [/^[\s\S]*?(?:^|\s|[-_/'".,])MONDOR(?:^|\s|[-_/'".,])[\s\S]*?(?:^|\s|[-_/'".,])BIOCHIMIE(?:^|\s|[-_/'".,])[\s\S]*?(?=\s*[-–]\s*\d{5}|$)/i, 'MONDOR BIOCHIMIE'],
+  [/^(?!.*BIOCHIMIE)[\s\S]*?(?:^|\s|[-_/'".,])MONDOR(?:^|\s|[-_/'".,])[\s\S]*?(?=\s*[-–]\s*\d{5}|$)/i, 'MONDOR'],
+];
 
-  // ST ANTOINE variantes d'écriture
-  [/LBU\s+ST\s+ANTOINE\s+HOPITAL/i, 'ST ANTOINE'],
-  [/HOPITAL\s+ST\s+ANTOINE/i, 'ST ANTOINE'],
-  [/SAINT\s+ANTOINE/i, 'ST ANTOINE'],
+/**
+ * Hôpitaux pour lesquels on a vérifié (sur l'historique réel des courses)
+ * que le tarif ne dépend pas du service → fusion complète vers le nom
+ * canonique. `match` peut couvrir plusieurs orthographes (ex: SAINT/ST).
+ */
+const HOSPITALS_MERGE_ALL: { match: string; canonical: string }[] = [
+  { match: 'SAINT[\\s-]?ANTOINE|ST[\\s-]?ANTOINE', canonical: 'SAINT ANTOINE' },
+  { match: 'SAINT[\\s-]?LOUIS|ST[\\s-]?LOUIS', canonical: 'ST-LOUIS' },
+  { match: 'SAINT[\\s-]?JOSEPH|ST[\\s-]?JOSEPH', canonical: 'ST JOSEPH' },
+  { match: 'ROBERT[\\s-]?DEBR[EÉÈ]', canonical: 'ROBERT DEBRE' },
+  { match: 'ANTOINE[\\s-]?B[EÉÈ]CL[EÉÈ]RE', canonical: 'ANTOINE BECLERE' },
+  { match: 'RAYMOND[\\s-]?POINCAR[EÉÈ]', canonical: 'RAYMOND POINCARE' },
+  { match: 'LOUIS[\\s-]?MOURIER', canonical: 'LOUIS MOURIER' },
+  { match: 'PAUL[\\s-]?BROUSSE', canonical: 'PAUL BROUSSE' },
+  { match: 'JEAN[\\s-]?VERDIER', canonical: 'JEAN VERDIER' },
+  { match: 'CHARLES[\\s-]?FOIX', canonical: 'CHARLES FOIX' },
+  { match: 'MAISON[\\s-]?BLANCHE', canonical: 'MAISON BLANCHE' },
+  { match: 'REN[EÉÈ][\\s-]?HUGUENIN', canonical: 'RENE HUGUENIN' },
+  { match: 'FERNAND[\\s-]?WIDAL', canonical: 'FERNAND WIDAL' },
+  { match: 'GEORGES[\\s-]?CLEMENCEAU', canonical: 'GEORGES CLEMENCEAU' },
+  { match: 'ALBERT[\\s-]?CHENEVIER', canonical: 'ALBERT CHENEVIER' },
+  { match: 'AMBROISE[\\s-]?PAR[EÉÈ]', canonical: 'AMBROISE PARE' },
+  { match: 'FOCH', canonical: 'FOCH' },
+  { match: 'COCHIN', canonical: 'COCHIN' },
+  { match: 'TENON', canonical: 'TENON' },
+  { match: 'TROUSS+EAU', canonical: 'TROUSSEAU' },
+  { match: 'BIC[EÊÈ]TRE', canonical: 'BICETRE' },
+  { match: 'BICHAT', canonical: 'BICHAT' },
+  { match: 'NECKER', canonical: 'NECKER' },
+  { match: 'LARIBOISI[EÈ]RE', canonical: 'LARIBOISIERE' },
+  { match: 'AVICENNE', canonical: 'AVICENNE' },
+  { match: 'ROTHSCHILD', canonical: 'ROTHSCHILD' },
+  { match: 'PITI[EÉÈ](?:[\\s-]?SALP[EÉÊÈ]TRI[EÈ]RE)?|SALP[EÉÊÈ]TRI[EÈ]RE', canonical: 'PITIE SALPETRIERE' },
+  { match: 'HEGP|GEORGES[\\s-]?POMPIDOU', canonical: 'HEGP' },
+  { match: '(?:INSTIT?U?T?\\s+CURIE|INST\\.?\\s+CURIE|CURIE)', canonical: 'INSTITUT CURIE' },
+  { match: 'NANTERRE', canonical: 'NANTERRE' },
+  { match: 'PONTOISE', canonical: 'PONTOISE' },
+  { match: 'VERSAILLES', canonical: 'VERSAILLES' },
+  { match: 'EVRY', canonical: 'EVRY' },
+  { match: 'BEAUJON', canonical: 'BEAUJON' },
+  { match: 'POISSY', canonical: 'POISSY' },
+  { match: 'BEGIN', canonical: 'BEGIN' },
+  { match: 'ROSERAIE', canonical: 'LA ROSERAIE' },
+  { match: 'MARNE[\\s-]?LA[\\s-]?VALLEE|HOPITAL PRIV[EÉÈ] MARNE LA VALLEE', canonical: 'HOPITAL PRIVE MARNE LA VALLEE' },
+];
 
-  // Robert Debré préfixes parasites
-  [/URGEB\s+ROBERT\s+DEBRE\b/i, 'ROBERT DEBRE'],
-  [/ROBERT\s+DEBRE\s*\([^)]*\)/i, 'ROBERT DEBRE'],
+const MERGE_ALL_OVERRIDES: Override[] = HOSPITALS_MERGE_ALL.map(({ match, canonical }) => [
+  mergeAllPattern(match),
+  canonical,
+]);
 
-  // Lieux avec préfixe "LOGE ACCUEIL"
-  [/LOGE\s+ACCUEIL\s*-+\s*CHARLES\s+FOIX/i, 'CHARLES FOIX'],
-  [/LOGE\s+ACCUEIL\s*-+\s*PITIE\b/i, 'PITIE SALPETRIERE'],
-
-  // Divers variantes de nom
-  [/ACDL\s+BEAUJON/i, 'BEAUJON'],
-  [/HAUTEVILLE\s+MAISON\s+BLANCHE/i, 'MAISON BLANCHE'],
+/**
+ * Overrides pour des lieux NON médicaux (ou non encore vérifiés côté tarif)
+ * — corrige uniquement les variantes/préfixes parasites, sans fusionner de
+ * service.
+ */
+const MISC_OVERRIDES: Override[] = [
   [/RUNGIS\s*[/\\]\s*PLATEAU\s+TECHNIQUE/i, 'RUNGIS'],
   [/BOISSY\s+LOG\b/i, 'BOISSY ST-LEGER'],
   [/\+?H\s+A\s+D\b/i, 'HAD'],
@@ -57,9 +112,15 @@ const MANUAL_OVERRIDES: Override[] = [
   [/CAP\s+CENTRE\s+BUS\b/i, 'RATP'],
   [/GCS\s+SEQOIA\b/i, 'GCS SEQOIA'],
   [/CEGOS\s*-*\s*ISSY\b/i, 'CEGOS ISSY'],
-  [/(?:INSTIT?U?T?\s+CURIE|INST\.?\s+CURIE)\b/i, 'INSTITUT CURIE'],
-  [/HOPITAL\s+RENE\s+HUGUENIN/i, 'RENE HUGUENIN'],
   [/LES\s+ATELIERS\s+DE\s+VAUGIRARD/i, 'ATELIERS VAUGIRARD'],
+];
+
+// Ordre : Mondor (exception Biochimie) → fusion complète des autres hôpitaux
+// vérifiés → divers non-médicaux. Le premier pattern qui matche gagne.
+const MANUAL_OVERRIDES: Override[] = [
+  ...MONDOR_OVERRIDES,
+  ...MERGE_ALL_OVERRIDES,
+  ...MISC_OVERRIDES,
 ];
 
 export function normalizeLieu(raw: string): string {

@@ -319,8 +319,8 @@ function mapFlatRow(row: Record<string, unknown>): ReferenceCourseInput | null {
   if (!qteKey && !achatKey) return null;
 
   return {
-    lieuEnlevement: enlevKey ? String(row[enlevKey] ?? '') : '',
-    lieuLivraison: livrKey ? String(row[livrKey] ?? '') : '',
+    lieuEnlevement: enlevKey ? cleanLieu(String(row[enlevKey] ?? '')) : '',
+    lieuLivraison: livrKey ? cleanLieu(String(row[livrKey] ?? '')) : '',
     qteBon: qteKey ? toNumber(row[qteKey]) : achatKey ? toNumber(row[achatKey]) : 0,
     // Format plat : pas de séparateur structurel visible, domaine inconnu par défaut
     domaine: 'courseCourse' as const,

@@ -10,6 +10,7 @@ export type Domaine = 'medical' | 'courseCourse';
 /** Mots-clés et noms d'établissements médicaux. */
 const MEDICAL_PATTERNS: RegExp[] = [
   // Hôpitaux AP-HP et assimilés
+  /\bMONDOR\b/i,
   /\bBICHAT\b/i,
   /\bLARIBOISIERE\b/i,
   /\bTROUSS?EAU\b/i,
