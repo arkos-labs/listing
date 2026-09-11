@@ -71,15 +71,14 @@ export default function DashboardScreen() {
   const checkUnread = async (email: string | null) => {
     if (!email) return;
     if (email === SUPER_ADMIN) {
-      // Admin : messages non lus des chauffeurs (exclure ses propres messages)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const adminId = sessionData.session?.user.id;
+      // Admin : messages non lus des chauffeurs, y compris ses propres signaux
+      // "course hors base" (l'admin reçoit aussi ce message quand il saisit lui-même
+      // une course absente de la base).
       const { data: msgs } = await supabase
         .from('support_messages')
         .select('user_id, content')
         .eq('sender', 'user')
-        .is('read_at', null)
-        .neq('user_id', adminId ?? '');
+        .is('read_at', null);
       if (!msgs || msgs.length === 0) { setUnreadMsgs([]); return; }
       const userIds = [...new Set(msgs.map(m => m.user_id))];
       const { data: profiles } = await supabase

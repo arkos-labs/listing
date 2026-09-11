@@ -227,6 +227,19 @@ export default function SaisieScreen() {
     return `⚠️ Tarif incorrect — ${nomChauffeur}\n\n${lignesCourses}${comparaison}\n\n|||FARE_DATA:${data}|||`;
   };
 
+  /** Message technique "course hors base" : visible uniquement par l'admin (filtré côté chauffeur). */
+  const buildNewRouteSignalMessage = (
+    nomChauffeur: string,
+    courses: { enl: string; liv: string; veh: string; qteBon: number; montant: number }[],
+    courseIds: string[],
+  ) => {
+    const lignes = courses.map(c =>
+      `• ${c.enl} → ${c.liv}${c.veh ? ` (${c.veh})` : ''}\n  ${c.qteBon} bons · ${c.montant.toFixed(2)}€`
+    ).join('\n');
+    const data = JSON.stringify({ ids: courseIds, routes: courses });
+    return `🆕 Course hors base — ${nomChauffeur}\n\n${lignes}\n\n|||NEW_ROUTE:${data}|||`;
+  };
+
   const signalerTarifIncorrect = async (details: string, montantOriginal: number, montantSuggere: string, courseIds: string[], routes: FareRoute[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -326,6 +339,31 @@ export default function SaisieScreen() {
         const qte = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
         return `${c.lieuEnlevement} → ${c.lieuLivraison} (${qte} bons · ${formatEuro(computeMontant(qte, prixBon))})`;
       }).join('\n');
+
+      // Courses dont le trajet (avec ce type) n'existe pas dans la base de référence
+      // → signal silencieux à l'admin (caché côté chauffeur), jamais bloquant pour la saisie
+      // Vaut aussi pour l'admin lui-même : il reçoit le message dans sa propre conversation.
+      {
+        try {
+          const horsBase = resultatLot.courses
+            .map((c, i) => ({ c, id: savedIds[i] }))
+            .filter(({ c }) => !resolveQteBidirectional(referenceCourses, c.lieuEnlevement, c.lieuLivraison, c.vehicule || undefined));
+          if (horsBase.length > 0) {
+            const { data: { user: u } } = await supabase.auth.getUser();
+            if (u) {
+              const nom = prenom || u.email || 'Chauffeur';
+              const coursesData = horsBase.map(({ c }) => {
+                const qte = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+                return { enl: c.lieuEnlevement, liv: c.lieuLivraison, veh: c.vehicule || '', qteBon: qte, montant: computeMontant(qte, prixBon) };
+              });
+              const ids = horsBase.map(({ id }) => id).filter((id): id is string => !!id);
+              await supabase.from('support_messages').insert({ user_id: u.id, content: buildNewRouteSignalMessage(nom, coursesData, ids), sender: 'user' });
+            }
+          }
+        } catch (e) {
+          console.warn('[saisie] signal course hors base non envoyé', e);
+        }
+      }
 
       if (chauffeurAModifie) {
         // Le chauffeur a changé la valeur → signal automatique à l'admin, sans demander

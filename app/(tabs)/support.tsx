@@ -17,6 +17,10 @@ type FareData = { ids: string[]; qte: number; montant: number; routes?: FareRout
 
 /** Message technique de signalement de tarif (visible uniquement par l'admin). */
 const isFareSignal = (m: { content: string }) => m.content.includes('|||FARE_DATA:');
+/** Message technique "course hors base" (visible uniquement par l'admin). */
+const isNewRouteSignal = (m: { content: string }) => m.content.includes('|||NEW_ROUTE:');
+/** Tout signal technique caché au chauffeur. */
+const isHiddenSignal = (m: { content: string }) => isFareSignal(m) || isNewRouteSignal(m);
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
@@ -333,9 +337,10 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             let fareData: FareData | null = null;
             try { if (fareMatch) fareData = JSON.parse(fareMatch[1]); } catch {}
             const isFareIssue = !!fareData && (fareData.ids?.length ?? 0) > 0;
-            // Texte visible (sans le bloc de données)
+            // Texte visible (sans les blocs de données techniques)
             const visibleContent = item.content
               .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
+              .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
               .trim();
 
             return (
@@ -483,7 +488,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
         const newMsg = payload.new as Message;
         // Les signalements de tarif sont destinés à l'admin uniquement :
         // le chauffeur ne voit que la confirmation "✅ Tarif corrigé"
-        if (isFareSignal(newMsg)) return;
+        if (isHiddenSignal(newMsg)) return;
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
@@ -500,7 +505,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       .select('*')
       .eq('user_id', user?.id)
       .order('created_at', { ascending: true });
-    setMessages((data ?? []).filter(m => !isFareSignal(m)));
+    setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
     setLoading(false);
     // Marquer les messages admin comme lus
     await supabase
