@@ -347,6 +347,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const flatRef = useRef<FlatList>(null);
 
   useEffect(() => {
