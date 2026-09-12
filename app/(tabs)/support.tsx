@@ -594,7 +594,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={[s.bubbleText, { color: isAdminMsg ? '#fff' : colors.text }]}>{visibleContent}</Text>
                 <Text style={{ fontSize: 10, marginTop: 4, color: isAdminMsg ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  {isAdminMsg && item.read_at && ' • Lu'}
+                  {isAdminMsg && item.read_at && ` • Lu le ${new Date(item.read_at).toLocaleDateString('fr-FR')} à ${new Date(item.read_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
                 </Text>
                 {isAskImport && (
                   <ImportListingButton colors={colors} />
@@ -900,7 +900,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={[s.bubbleText, { color: isMe ? '#fff' : colors.text }]}>{visibleContent}</Text>
                 <Text style={{ fontSize: 10, marginTop: 4, color: isMe ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  {isMe && item.read_at && ' • Lu'}
+                  {isMe && item.read_at && ` • Lu le ${new Date(item.read_at).toLocaleDateString('fr-FR')} à ${new Date(item.read_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
                 </Text>
                 {isAskImport && !isMe && (
                   <ImportListingButton colors={colors} />
