@@ -56,6 +56,10 @@ export default function SaisieScreen() {
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [batch, setBatch] = useState<SimulateurCourse[]>([]);
   let batchIdCounter = batch.length;
+  // Anti-doublon : empêche un double-tap / un tap trop rapproché de dupliquer
+  // l'ajout au lot ou l'enregistrement (voir bug "champcueil 7 bons ×5").
+  const lastAddToBatchAt = useRef(0);
+  const isSubmittingRef = useRef(false);
 
   // Vérification du tarif après saisie
   const [tarifCheck, setTarifCheck] = useState<{ montant: number; details: string; courseIds: string[]; routes: { enl: string; liv: string; veh: string }[] } | null>(null);
@@ -117,6 +121,11 @@ export default function SaisieScreen() {
 
   const addToBatch = () => {
     if (!form.lieuEnlevement.trim() || !form.lieuLivraison.trim() || form.qteBon <= 0) return;
+    // Anti-doublon : ignore un second appel survenant moins de 600ms après le
+    // précédent (double-tap accidentel sur le bouton +).
+    const now = Date.now();
+    if (now - lastAddToBatchAt.current < 600) return;
+    lastAddToBatchAt.current = now;
     setBatch(b => [...b, {
       id: `b${b.length}`,
       lieuEnlevement: form.lieuEnlevement,
@@ -269,9 +278,14 @@ export default function SaisieScreen() {
   };
 
   const submit = async () => {
+    // Anti-doublon dur : `saving` est un state React (mise à jour asynchrone),
+    // donc un tap rapide juste après le premier peut encore passer avant le
+    // re-render qui désactive le bouton. Ce ref, lui, est synchrone.
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setError(null);
-    if (lotComplet.length === 0) { setError("Indiquez au moins une course."); return; }
-    if (form.qteBon <= 0 && batch.length === 0) { setError('Indiquez le nombre de bons.'); return; }
+    if (lotComplet.length === 0) { setError("Indiquez au moins une course."); isSubmittingRef.current = false; return; }
+    if (form.qteBon <= 0 && batch.length === 0) { setError('Indiquez le nombre de bons.'); isSubmittingRef.current = false; return; }
     setSaving(true);
     try {
       // Détecter AVANT de sauvegarder si le chauffeur a changé le tarif DB
@@ -394,6 +408,7 @@ export default function SaisieScreen() {
       setError("Échec de l'enregistrement.");
     } finally {
       setSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
