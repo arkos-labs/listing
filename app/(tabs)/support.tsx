@@ -14,6 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { parseExcelFile } from '@/lib/excelImport';
 import { parsePdfFile } from '@/lib/pdfImport';
 import { matchByPickupAndDelivery, resolveVehicule } from '@/lib/reference';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type FareRoute = { enl: string; liv: string; veh: string };
 type FareData = { ids: string[]; qte: number; montant: number; routes?: FareRoute[] };
@@ -762,6 +763,10 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
       setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
+      
+      // Sauvegarde locale de la lecture pour être sûr que la pastille disparaît, 
+      // même si l'UPDATE échoue (à cause d'un blocage RLS éventuel).
+      await AsyncStorage.setItem('last_read_support', new Date().toISOString());
       
       // Marquer les messages admin comme lus
       await supabase

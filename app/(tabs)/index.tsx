@@ -105,14 +105,29 @@ export default function DashboardScreen() {
       const { data: session } = await supabase.auth.getSession();
       const userId = session.session?.user.id;
       if (!userId) return;
+
+      const lastReadStr = await AsyncStorage.getItem('last_read_support');
+      const lastReadTime = lastReadStr ? new Date(lastReadStr).getTime() : 0;
+
       const { data: msgs } = await supabase
         .from('support_messages')
-        .select('content')
+        .select('content, created_at')
         .eq('user_id', userId)
         .eq('sender', 'admin')
         .is('read_at', null);
       
-      const filtered = (msgs ?? []).map(m => {
+      const filtered = (msgs ?? []).filter(m => {
+        // Ignorer si déjà lu localement (fallback si RLS bloque l'UPDATE)
+        if (new Date(m.created_at).getTime() <= lastReadTime) return false;
+        
+        const visibleContent = m.content
+          .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|IMPORT_LISTING:.+?\|\|\|/s, '')
+          .replace('|||ASK_IMPORT|||', '')
+          .trim();
+        return visibleContent.length > 0;
+      }).map(m => {
         const visibleContent = m.content
           .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
           .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
@@ -120,7 +135,7 @@ export default function DashboardScreen() {
           .replace('|||ASK_IMPORT|||', '')
           .trim();
         return { prenom: 'Admin', content: visibleContent };
-      }).filter(m => m.content.length > 0);
+      });
       
       setUnreadMsgs(filtered);
     }
