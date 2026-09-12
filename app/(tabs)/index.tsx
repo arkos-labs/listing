@@ -56,7 +56,7 @@ export default function DashboardScreen() {
     // Écoute temps réel — utilise le ref pour avoir l'email à jour
     const channel = supabase
       .channel('home_notif')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_messages' }, () => {
         checkUnread(userEmailRef.current);
       })
       .subscribe();
@@ -86,11 +86,20 @@ export default function DashboardScreen() {
         .select('id, prenom')
         .in('id', userIds);
       const prenomMap = new Map((profiles ?? []).map(p => [p.id, p.prenom || 'Utilisateur']));
-      const grouped = userIds.map(uid => ({
-        prenom: prenomMap.get(uid) ?? 'Utilisateur',
-        content: msgs.find(m => m.user_id === uid)?.content ?? '',
-      }));
-      setUnreadMsgs(grouped);
+      const grouped = userIds.map(uid => {
+        const rawContent = msgs.find(m => m.user_id === uid)?.content ?? '';
+        const visibleContent = rawContent
+          .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|IMPORT_LISTING:.+?\|\|\|/s, '')
+          .replace('|||ASK_IMPORT|||', '')
+          .trim();
+        return {
+          prenom: prenomMap.get(uid) ?? 'Utilisateur',
+          content: visibleContent,
+        };
+      });
+      setUnreadMsgs(grouped.filter(g => g.content.length > 0));
     } else {
       // Chauffeur : réponses non lues de l'admin
       const { data: session } = await supabase.auth.getSession();
@@ -102,7 +111,18 @@ export default function DashboardScreen() {
         .eq('user_id', userId)
         .eq('sender', 'admin')
         .is('read_at', null);
-      setUnreadMsgs((msgs ?? []).map(m => ({ prenom: 'Admin', content: m.content })));
+      
+      const filtered = (msgs ?? []).map(m => {
+        const visibleContent = m.content
+          .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
+          .replace(/\s*\|\|\|IMPORT_LISTING:.+?\|\|\|/s, '')
+          .replace('|||ASK_IMPORT|||', '')
+          .trim();
+        return { prenom: 'Admin', content: visibleContent };
+      }).filter(m => m.content.length > 0);
+      
+      setUnreadMsgs(filtered);
     }
   };
 
