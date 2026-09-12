@@ -47,12 +47,31 @@ export function ListingNotificationsProvider({ children }: { children: React.Rea
 
   const load = useCallback(async () => {
     if (!user) { setNotifications([]); setReadIds(new Set()); return; }
-    // TEMP DEV BYPASS — DO NOT COMMIT: fixture instead of real Supabase calls
-    setNotifications([
-      { id: 'n1', createdAt: new Date().toISOString(), courseCount: 42, createdBy: 'someone-else' },
-      { id: 'n2', createdAt: new Date().toISOString(), courseCount: 8, createdBy: 'someone-else' },
+
+    const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    const [{ data: notifRows, error: notifErr }, { data: readRows, error: readErr }] = await Promise.all([
+      supabase
+        .from('listing_notifications')
+        .select('id, created_at, course_count, created_by')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('listing_notification_reads')
+        .select('notification_id')
+        .eq('user_id', user.id),
     ]);
-    setReadIds(new Set());
+
+    if (notifErr) console.error('[ListingNotifications] échec du chargement des notifications:', notifErr.message);
+    if (readErr) console.error('[ListingNotifications] échec du chargement des lectures:', readErr.message);
+
+    setNotifications((notifRows ?? []).map((r) => ({
+      id: r.id,
+      createdAt: r.created_at,
+      courseCount: r.course_count,
+      createdBy: r.created_by,
+    })));
+    setReadIds(new Set((readRows ?? []).map((r) => r.notification_id)));
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
@@ -81,8 +100,18 @@ export function ListingNotificationsProvider({ children }: { children: React.Rea
   const markAllSeen = useCallback(async () => {
     if (!user || unseenNotifications.length === 0) return;
     const ids = unseenNotifications.map((n) => n.id);
+    // Optimiste : on masque immédiatement côté UI...
     setReadIds((prev) => new Set([...prev, ...ids]));
-    // TEMP DEV BYPASS — DO NOT COMMIT: skip real Supabase write
+    const rows = ids.map((notification_id) => ({ notification_id, user_id: user.id }));
+    // ...mais on écrit bien en base : sans ça, un rechargement de l'app
+    // (nouveau fetch dans `load`) referait apparaître la notification comme
+    // non vue, puisque rien n'aurait vraiment été enregistré.
+    const { error } = await supabase.from('listing_notification_reads').insert(rows);
+    // Code 23505 = ligne déjà existante (déjà vue précédemment) : pas une
+    // vraie erreur, on l'ignore silencieusement.
+    if (error && error.code !== '23505') {
+      console.error('[ListingNotifications] échec de la sauvegarde "vu":', error.message);
+    }
   }, [user, unseenNotifications]);
 
   return (
