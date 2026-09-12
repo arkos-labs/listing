@@ -381,66 +381,71 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   }, [selected]);
 
   const fetchConversations = async () => {
-    // Tous les utilisateurs inscrits (bypass RLS via fonction)
-    const { data: profiles } = await supabase
-      .rpc('get_all_profiles');
+    try {
+      // Tous les utilisateurs inscrits (bypass RLS via fonction)
+      const { data: profiles } = await supabase
+        .rpc('get_all_profiles');
 
-    // Tous les messages
-    const { data: msgs } = await supabase
-      .from('support_messages')
-      .select('*')
-      .order('created_at', { ascending: false });
+      // Tous les messages
+      const { data: msgs } = await supabase
+        .from('support_messages')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    const msgMap = new Map<string, { last_message: string; last_at: string; unread: number }>();
-    for (const m of (msgs ?? [])) {
-      if (!msgMap.has(m.user_id)) {
-        msgMap.set(m.user_id, {
-          last_message: m.content,
-          last_at: m.created_at,
-          unread: m.sender === 'user' && !m.read_at ? 1 : 0,
-        });
-      } else if (m.sender === 'user' && !m.read_at) {
-        msgMap.get(m.user_id)!.unread++;
+      const msgMap = new Map<string, { last_message: string; last_at: string; unread: number }>();
+      for (const m of (msgs ?? [])) {
+        if (!msgMap.has(m.user_id)) {
+          msgMap.set(m.user_id, {
+            last_message: m.content,
+            last_at: m.created_at,
+            unread: m.sender === 'user' && !m.read_at ? 1 : 0,
+          });
+        } else if (m.sender === 'user' && !m.read_at) {
+          msgMap.get(m.user_id)!.unread++;
+        }
       }
-    }
 
-    const convs: Conversation[] = ((profiles ?? []) as { id: string; prenom: string | null; email: string | null }[]).map(p => ({
-      user_id: p.id,
-      prenom: p.prenom || 'Utilisateur',
-      email: p.email || '',
-      last_message: msgMap.get(p.id)?.last_message ?? '',
-      last_at: msgMap.get(p.id)?.last_at ?? '',
-      unread: msgMap.get(p.id)?.unread ?? 0,
-    }));
+      const convs: Conversation[] = ((profiles ?? []) as { id: string; prenom: string | null; email: string | null }[]).map(p => ({
+        user_id: p.id,
+        prenom: p.prenom || 'Utilisateur',
+        email: p.email || '',
+        last_message: msgMap.get(p.id)?.last_message ?? '',
+        last_at: msgMap.get(p.id)?.last_at ?? '',
+        unread: msgMap.get(p.id)?.unread ?? 0,
+      }));
 
-    // Ajouter les utilisateurs qui ont envoyé des messages mais qui ne sont pas dans profiles (ex: admin)
-    const profileIds = new Set(convs.map(c => c.user_id));
-    for (const [userId, meta] of msgMap.entries()) {
-      if (!profileIds.has(userId)) {
-        convs.push({
-          user_id: userId,
-          prenom: 'Moi (Admin)',
-          email: '',
-          last_message: meta.last_message,
-          last_at: meta.last_at,
-          unread: meta.unread,
-        });
+      // Ajouter les utilisateurs qui ont envoyé des messages mais qui ne sont pas dans profiles (ex: admin)
+      const profileIds = new Set(convs.map(c => c.user_id));
+      for (const [userId, meta] of msgMap.entries()) {
+        if (!profileIds.has(userId)) {
+          convs.push({
+            user_id: userId,
+            prenom: 'Moi (Admin)',
+            email: '',
+            last_message: meta.last_message,
+            last_at: meta.last_at,
+            unread: meta.unread,
+          });
+        }
       }
+
+      // Trier : non lus en premier → avec messages (par date récente) → sans message
+      convs.sort((a, b) => {
+        const aHasMsg = !!a.last_at;
+        const bHasMsg = !!b.last_at;
+        if (b.unread !== a.unread) return b.unread - a.unread;
+        if (aHasMsg && bHasMsg) return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
+        if (aHasMsg) return -1;
+        if (bHasMsg) return 1;
+        return a.prenom.localeCompare(b.prenom);
+      });
+
+      setConversations(convs);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // Trier : non lus en premier → avec messages (par date récente) → sans message
-    convs.sort((a, b) => {
-      const aHasMsg = !!a.last_at;
-      const bHasMsg = !!b.last_at;
-      if (b.unread !== a.unread) return b.unread - a.unread;
-      if (aHasMsg && bHasMsg) return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
-      if (aHasMsg) return -1;
-      if (bHasMsg) return 1;
-      return a.prenom.localeCompare(b.prenom);
-    });
-
-    setConversations(convs);
-    setLoading(false);
   };
 
   const fetchMessages = async (userId: string) => {
@@ -724,6 +729,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const flatRef = useRef<FlatList>(null);
 
   useEffect(() => {
+    if (!user?.id) return;
     fetchMessages();
     const channel = supabase
       .channel('support_driver_' + user?.id)
@@ -745,24 +751,31 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [user?.id]);
 
   const fetchMessages = async () => {
-    const { data } = await supabase
-      .from('support_messages')
-      .select('*')
-      .eq('user_id', user?.id)
-      .order('created_at', { ascending: true });
-    setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
-    setLoading(false);
-    // Marquer les messages admin comme lus
-    await supabase
-      .from('support_messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('user_id', user?.id)
-      .eq('sender', 'admin')
-      .is('read_at', null);
-    setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 100);
+    try {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('support_messages')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+      setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
+      
+      // Marquer les messages admin comme lus
+      await supabase
+        .from('support_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('sender', 'admin')
+        .is('read_at', null);
+      setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 100);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const send = async () => {
