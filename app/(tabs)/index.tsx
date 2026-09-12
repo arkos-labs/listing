@@ -28,6 +28,7 @@ import { generateMotivationMessage } from '@/lib/motivation';
 import { getUserHabits } from '@/lib/learningEngine';
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
+const APP_VERSION = 'v2.4.0';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -330,7 +331,7 @@ export default function DashboardScreen() {
   }) : null;
 
   const heroColors: [string, string, string] = isDark
-    ? ['#0A2818', '#134024', '#0A2818']
+    ? ['#0C3220', '#16452C', '#0C3220']
     : ['#0D4A28', '#1A7043', '#0F4D2C'];
 
   return (
@@ -339,7 +340,7 @@ export default function DashboardScreen() {
       {/* ── NOTIFICATION MESSAGES — fixée en haut ── */}
       {unreadMsgs.length > 0 && (
         <TouchableOpacity
-          style={{ backgroundColor: '#1A6137', marginHorizontal: 16, marginTop: 52, marginBottom: 4, borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10 }}
+          style={{ backgroundColor: '#1A6137', marginHorizontal: 16, marginTop: 52, marginBottom: 4, borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10, shadowColor: '#0F4D2C', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
           onPress={() => router.push('/(tabs)/support')}
         >
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
@@ -498,7 +499,7 @@ export default function DashboardScreen() {
 
       {/* ── MESSAGE DE MOTIVATION ── */}
       {motivMsg && (
-        <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: colors.card, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, borderLeftWidth: 3, borderLeftColor: colors.green }}>
+        <View style={{ marginTop: 12, marginBottom: 4, backgroundColor: colors.card, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 14, borderLeftWidth: 3, borderLeftColor: colors.green, shadowColor: '#000', shadowOpacity: isDark ? 0.15 : 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 }}>
           <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text, lineHeight: 20 }}>{motivMsg}</Text>
         </View>
       )}
@@ -506,7 +507,9 @@ export default function DashboardScreen() {
       {/* ── TUILES ── */}
       <View style={styles.tilesRow}>
         <View style={[styles.tile, shadow]}>
-          <Text style={{ fontSize: 20 }}>⛽</Text>
+          <View style={styles.tileIconWrap}>
+            <Fuel size={15} color={colors.green} />
+          </View>
           <Text style={styles.tileLabel}>Essence</Text>
           <Text style={styles.tileValue}>{formatEuro(totals.mois)}<Text style={styles.tileSuffix}>/m</Text></Text>
           <View style={styles.tileInputRow}>
@@ -617,6 +620,14 @@ export default function DashboardScreen() {
           </View>
 
         </View>
+      </View>
+
+      {/* ── FOOTER VERSION ── */}
+      <View style={{ alignItems: 'center', marginTop: 24, paddingBottom: 8, gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: isDark ? colors.bgSubtle : '#E8EAEE', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textFaint, letterSpacing: 0.3 }}>CourseLog {APP_VERSION}</Text>
+        </View>
+        <Text style={{ fontSize: 10, fontWeight: '500', color: colors.textFaint, letterSpacing: 0.2 }}>© 2024-2026 CourseLog</Text>
       </View>
 
       <View style={{ height: 24 }} />

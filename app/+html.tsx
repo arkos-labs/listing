@@ -17,10 +17,23 @@ export default function Root({ children }: PropsWithChildren) {
           content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
 
+        {/* SEO & Meta */}
+        <title>CourseLog — Suivi de courses professionnel</title>
+        <meta name="description" content="CourseLog : l'application de suivi de courses, bons et frais pour coursiers et livreurs. Gérez vos courses, analysez votre rentabilité et optimisez vos revenus." />
+        <meta name="author" content="CourseLog" />
+        <meta property="og:title" content="CourseLog — Suivi de courses professionnel" />
+        <meta property="og:description" content="L'application de suivi de courses pour coursiers et livreurs. Saisie rapide, historique détaillé, simulation de revenus." />
+        <meta property="og:type" content="website" />
+
+        {/* Google Fonts — Inter pour un rendu premium */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
         {/* PWA: fait tourner l'app en plein écran (sans barre de navigateur) une fois ajoutée à l'écran d'accueil */}
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#f3f1ea" />
-        <meta name="background-color" content="#f3f1ea" />
+        <meta name="theme-color" content="#134024" />
+        <meta name="background-color" content="#FDFCF8" />
         <meta name="mobile-web-app-capable" content="yes" />
 
         {/* iOS (Safari n'utilise pas le manifest.json pour le mode plein écran) */}
@@ -40,6 +53,7 @@ export default function Root({ children }: PropsWithChildren) {
         <style dangerouslySetInnerHTML={{ __html: `
           /* Bloquer TOUT zoom */
           html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             touch-action: pan-x pan-y;
             -ms-touch-action: pan-x pan-y;
             overscroll-behavior-y: none;

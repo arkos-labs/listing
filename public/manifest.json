@@ -1,13 +1,13 @@
 {
-  "name": "CourseLog - Suivi de courses",
+  "name": "CourseLog — Suivi de courses",
   "short_name": "CourseLog",
-  "description": "Suivi des courses, bons et frais pour livreur",
+  "description": "Application professionnelle de suivi de courses, bons et frais pour coursiers et livreurs.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f3f1ea",
-  "theme_color": "#f3f1ea",
+  "background_color": "#FDFCF8",
+  "theme_color": "#134024",
   "icons": [
     {
       "src": "/icon-192.png",

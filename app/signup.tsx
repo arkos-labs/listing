@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Truck, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { radius, shadow } from '@/lib/theme';
-import Svg, { Path } from 'react-native-svg';
+
+const APP_VERSION = 'v2.4.0';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -31,26 +33,38 @@ export default function SignupScreen() {
     if (error) setSignupError(error);
   };
 
+  const logoGradient: [string, string, string] = isDark
+    ? ['#0C3220', '#1E7040', '#16452C']
+    : ['#0D4A28', '#1A7043', '#134024'];
+
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: isDark ? colors.bg : '#F9FAFB' }}
+      style={{ flex: 1, backgroundColor: isDark ? colors.bg : '#F5F6F8' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* LOGO & TITRE */}
+        {/* LOGO & BRANDING */}
         <View style={styles.header}>
-          <View style={[styles.logoBox, { backgroundColor: '#134024' }]}>
-            <Truck size={32} color="#FFF" />
-          </View>
-          <Text style={[styles.title, { color: isDark ? '#FFF' : '#0F4D2C' }]}>Créer un compte</Text>
+          <LinearGradient
+            colors={logoGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoBox}
+          >
+            <Truck size={30} color="#FFF" strokeWidth={2.2} />
+          </LinearGradient>
+          <Text style={[styles.title, { color: isDark ? '#FFF' : '#0F4D2C' }]}>CourseLog</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Rejoignez-nous pour gérer vos courses.
+            Créez votre compte en quelques secondes
           </Text>
+          <View style={[styles.versionBadge, { backgroundColor: isDark ? colors.bgSubtle : '#E8F5EE', borderColor: isDark ? colors.border : '#C6E7D4' }]}>
+            <Text style={[styles.versionText, { color: isDark ? colors.greenLight : '#166F42' }]}>{APP_VERSION} · Stable</Text>
+          </View>
         </View>
 
         {/* CARTE D'INSCRIPTION */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadow]}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: isDark ? colors.border : 'transparent' }, shadow]}>
           
           <Text style={[styles.label, { color: colors.text }]}>PRÉNOM</Text>
           <View style={[styles.inputWrapper, { backgroundColor: isDark ? colors.bgSubtle : '#F3F4F6' }]}>
@@ -124,6 +138,11 @@ export default function SignupScreen() {
           </Text>
         </View>
 
+        {/* COPYRIGHT */}
+        <Text style={[styles.copyright, { color: colors.textFaint }]}>
+          © 2024-2026 CourseLog — Tous droits réservés
+        </Text>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -141,27 +160,45 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logoBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 68,
+    height: 68,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+    shadowColor: '#0F4D2C',
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   title: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '900',
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -0.8,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 15,
     fontWeight: '500',
+    marginBottom: 12,
+  },
+  versionBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  versionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   card: {
     width: '100%',
     borderRadius: 36,
     padding: 28,
+    borderWidth: 1,
   },
   label: {
     fontSize: 11,
@@ -195,6 +232,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+    shadowColor: '#1A6137',
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   loginBtnText: {
     color: '#FFF',
@@ -206,6 +248,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 15,
+  },
+  copyright: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 32,
+    letterSpacing: 0.2,
   },
   errorBox: {
     borderRadius: 14,

@@ -1,18 +1,18 @@
 /** Palette et constantes partagées pour l'habillage visuel de l'appli. */
 
 export const lightColors = {
-  // Fonds
-  bg: '#F5F6F8',
-  bgSubtle: '#ECEEF2',
+  // Fonds — Blanc cassé chaud (ivoire très léger)
+  bg: '#FDFCF8',
+  bgSubtle: '#F4F3ED',
   card: '#FFFFFF',
   cardElevated: '#FFFFFF',
   // Texte
   text: '#0E1621',
   textMuted: '#5C6470',
   textFaint: '#AAB2BC',
-  // Bordures
-  border: '#E8EAEE',
-  borderStrong: '#D4D8DE',
+  // Bordures — plus chaudes pour matcher le fond
+  border: '#EBE9E1',
+  borderStrong: '#D6D3C9',
   black: '#0E1621',
   // Vert principal — plus sophistiqué
   green: '#166F42',
@@ -34,36 +34,36 @@ export const lightColors = {
 };
 
 export const darkColors = {
-  // Fonds
-  bg: '#0A0E14',
-  bgSubtle: '#111620',
-  card: '#141A24',
-  cardElevated: '#1A2130',
-  // Texte
-  text: '#E2E8F0',
-  textMuted: '#7A8899',
-  textFaint: '#3E4A58',
+  // Fonds — Pitch Black (OLED friendly)
+  bg: '#000000',
+  bgSubtle: '#09090B',
+  card: '#121214',
+  cardElevated: '#1C1C1F',
+  // Texte — High contrast
+  text: '#FAFAFA',
+  textMuted: '#A1A1AA',
+  textFaint: '#52525B',
   // Bordures
-  border: '#1E2A38',
-  borderStrong: '#263040',
-  black: '#1E2A38',
-  // Vert principal
-  green: '#27A85A',
-  greenLight: '#33C06A',
-  greenSoft: '#0A2418',
-  greenDark: '#5ED487',
+  border: '#27272A',
+  borderStrong: '#3F3F46',
+  black: '#18181B',
+  // Vert principal — vibrant pour contraster avec le noir
+  green: '#22C55E',
+  greenLight: '#4ADE80',
+  greenSoft: '#052E16',
+  greenDark: '#16A34A',
   // Hero card
-  heroBg: '#0A2E1A',
-  heroAccent: '#134024',
+  heroBg: '#022C22',
+  heroAccent: '#064E3B',
   heroText: '#FFFFFF',
-  heroSub: 'rgba(255,255,255,0.5)',
+  heroSub: 'rgba(255,255,255,0.7)',
   // Alertes
-  amber: '#F0A030',
-  amberSoft: '#2A1A04',
-  red: '#F26560',
-  redSoft: '#2A0A09',
-  blue: '#4A9DE8',
-  blueSoft: '#0A1E30',
+  amber: '#F59E0B',
+  amberSoft: '#451A03',
+  red: '#EF4444',
+  redSoft: '#450A0A',
+  blue: '#3B82F6',
+  blueSoft: '#172554',
 };
 
 export type AppColors = typeof lightColors;
