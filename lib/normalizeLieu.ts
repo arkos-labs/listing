@@ -10,16 +10,11 @@
  * (véhicule : EXPRESS / URGENCE VITALE / NUIT / DIMANCHE ET JF / PROGRAMME…)
  * fait varier le prix. Fusionner les services n'affecte donc pas le tarif.
  *
- * SEULE EXCEPTION CONNUE : Henri Mondor. Le service Biochimie y a un tarif
- * réellement plus élevé que les autres services (~+40%, confirmé sur
- * plusieurs partenaires à véhicule identique) → "MONDOR BIOCHIMIE" est
- * conservé séparé de "MONDOR" (voir MONDOR_OVERRIDES ci-dessous).
- *
  * Exemples:
  *   "TRI  ST-LOUIS - 75010 PARIS"                → "ST-LOUIS - 75010 PARIS"
  *   "BICHAT EFS - 75018 PARIS 18"                → "BICHAT - 75018 PARIS 18"
  *   "SAINT ANTOINE EFS - 75012 PARIS 12"         → "ST ANTOINE - 75012 PARIS 12"
- *   "MONDOR BIOCHIMIE - 94010 CRETEIL"           → "MONDOR BIOCHIMIE - 94010 CRETEIL" (conservé)
+ *   "MONDOR BIOCHIMIE - 94010 CRETEIL"           → "MONDOR - 94010 CRETEIL"
  *   "COURBE MONDOR EFS - 94010 CRETEIL"          → "MONDOR - 94010 CRETEIL"
  *   "BOISSY LOG - 94470 BOISSY SAINT LEGER"      → "BOISSY ST-LEGER - 94470 BOISSY SAINT LEGER"
  *   "LOGE ACCUEIL - CHARLES FOIX - 94200 IVRY"   → "CHARLES FOIX - 94200 IVRY SUR SEINE"
@@ -36,14 +31,11 @@ function mergeAllPattern(matchSrc: string): RegExp {
 }
 
 // ---------------------------------------------------------------------------
-// Henri Mondor : cas à part (voir doc en tête de fichier). Biochimie garde son
-// libellé (et donc son propre tarif de référence) ; tout le reste fusionne
-// vers "MONDOR". L'ordre compte : la règle Biochimie doit être testée AVANT
-// la fusion générale de MANUAL_OVERRIDES ci-dessous.
+// Henri Mondor : tous les services (y compris Biochimie) fusionnent vers
+// "MONDOR". Le tarif Biochimie n'est plus distingué (confirmé 2026-09-12).
 // ---------------------------------------------------------------------------
 const MONDOR_OVERRIDES: Override[] = [
-  [/^[\s\S]*?(?:^|\s|[-_/'".,])MONDOR(?:^|\s|[-_/'".,])[\s\S]*?(?:^|\s|[-_/'".,])BIOCHIMIE(?:^|\s|[-_/'".,])[\s\S]*?(?=\s*[-–]\s*\d{5}|$)/i, 'MONDOR BIOCHIMIE'],
-  [/^(?!.*BIOCHIMIE)[\s\S]*?(?:^|\s|[-_/'".,])MONDOR(?:^|\s|[-_/'".,])[\s\S]*?(?=\s*[-–]\s*\d{5}|$)/i, 'MONDOR'],
+  [/^[\s\S]*?(?:^|\s|[-_/'".,])MONDOR(?:\s|[-_/'".,]|$)[\s\S]*?(?=\s*[-–]\s*\d{5}|$)/i, 'MONDOR'],
 ];
 
 /**
