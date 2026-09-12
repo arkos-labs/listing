@@ -9,7 +9,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useReference } from '@/context/ReferenceContext';
 import { supabase } from '@/lib/supabase';
-import { invalidateCache } from '@/lib/supabaseSync';
+import { invalidateCache, formatImportResult } from '@/lib/supabaseSync';
+import * as DocumentPicker from 'expo-document-picker';
+import { parseExcelFile } from '@/lib/excelImport';
+import { parsePdfFile } from '@/lib/pdfImport';
 import { matchByPickupAndDelivery, resolveVehicule } from '@/lib/reference';
 
 type FareRoute = { enl: string; liv: string; veh: string };
@@ -269,6 +272,73 @@ function NewRouteAddButton({
   );
 }
 
+function ImportListingButton({ colors }: { colors: any }) {
+  const { importFiles } = useReference();
+  const [importing, setImporting] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const doImport = async () => {
+    setImporting(true);
+    setMsg(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/octet-stream',
+          'application/pdf',
+        ],
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+
+      let allInputs: Awaited<ReturnType<typeof parseExcelFile>> = [];
+      for (const asset of res.assets) {
+        try {
+          const isPdf = asset.name?.toLowerCase().endsWith('.pdf') || asset.mimeType === 'application/pdf';
+          const rows = isPdf ? await parsePdfFile(asset.uri) : await parseExcelFile(asset.uri);
+          allInputs = allInputs.concat(rows);
+        } catch (fileErr) {}
+      }
+
+      if (allInputs.length === 0) {
+        setMsg('Aucune ligne exploitable trouvée');
+        return;
+      }
+
+      const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
+      const result = await importFiles(allInputs, filesToUpload);
+      setMsg(formatImportResult(result));
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const m = `📥 Import de listing (via Support) par ${user.email}\n\nLignes ajoutées : ${result.inserted}\nLignes existantes ignorées : ${result.duplicates + result.alreadyInDb}\nErreurs : ${result.errors}\n\n|||IMPORT_LISTING:true|||`;
+          await supabase.from('support_messages').insert({ user_id: user.id, content: m, sender: 'user' });
+        }
+      } catch (e) {}
+    } catch (e: any) {
+      setMsg(`Erreur : ${e.message}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <TouchableOpacity
+        style={{ backgroundColor: '#1d4ed8', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', opacity: importing ? 0.6 : 1 }}
+        onPress={doImport}
+        disabled={importing}
+      >
+        {importing ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Importer mes listings</Text>}
+      </TouchableOpacity>
+      {msg && <Text style={{ fontSize: 11, color: '#fff', marginTop: 6 }}>{msg}</Text>}
+    </View>
+  );
+}
+
 // ─── VUE ADMIN (cherkinicolas@gmail.com) ────────────────────────────────────
 function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const router = useRouter();
@@ -385,7 +455,8 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   };
 
   const send = async () => {
-    if (!text.trim() || !selected) return;
+    if (!text.trim() || !selected || sending) return;
+    setSending(true);
     const content = text.trim();
     setText('');
     await supabase.from('support_messages').insert({
@@ -393,6 +464,18 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       content,
       sender: 'admin',
     });
+    setSending(false);
+  };
+
+  const askForListing = async () => {
+    if (!selected || sending) return;
+    setSending(true);
+    await supabase.from('support_messages').insert({
+      user_id: selected.user_id,
+      content: `Veuillez importer vos derniers listings Excel ou PDF (via le bouton ci-dessous) pour que l'application puisse mieux calculer vos courses.\n|||ASK_IMPORT|||`,
+      sender: 'admin',
+    });
+    setSending(false);
   };
 
   const s = styles(colors, isDark);
@@ -443,6 +526,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
               .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
               .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
               .replace(/\s*\|\|\|IMPORT_LISTING:.+?\|\|\|/s, '')
+              .replace('|||ASK_IMPORT|||', '')
               .trim();
 
             return (
@@ -471,7 +555,17 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
           }}
         />
 
-        <View style={s.inputBar}>
+        <View style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingTop: 8 }}>
+           <TouchableOpacity 
+             onPress={askForListing} 
+             style={{ backgroundColor: '#134024', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, opacity: sending ? 0.5 : 1, alignSelf: 'flex-start' }} 
+             disabled={sending}
+           >
+             <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>📄 Demander les listings</Text>
+           </TouchableOpacity>
+        </View>
+
+        <View style={[s.inputBar, { borderTopWidth: 0, paddingTop: 8 }]}>
           <TextInput
             style={s.input}
             value={text}
@@ -480,7 +574,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             placeholderTextColor={colors.textFaint}
             multiline
           />
-          <TouchableOpacity style={[s.sendBtn, { opacity: text.trim() ? 1 : 0.4 }]} onPress={send} disabled={!text.trim()}>
+          <TouchableOpacity style={[s.sendBtn, { opacity: text.trim() ? 1 : 0.4 }]} onPress={send} disabled={!text.trim() || sending}>
             <Send size={18} color="#fff" strokeWidth={2.2} />
           </TouchableOpacity>
         </View>
@@ -677,12 +771,17 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
           }
           renderItem={({ item }) => {
             const isMe = item.sender === 'user';
+            const isAskImport = item.content.includes('|||ASK_IMPORT|||');
+            const visibleContent = item.content.replace('|||ASK_IMPORT|||', '').trim();
             return (
               <View style={[s.bubble, isMe ? s.bubbleMe : s.bubbleOther]}>
-                <Text style={[s.bubbleText, { color: isMe ? '#fff' : colors.text }]}>{item.content}</Text>
+                <Text style={[s.bubbleText, { color: isMe ? '#fff' : colors.text }]}>{visibleContent}</Text>
                 <Text style={{ fontSize: 10, marginTop: 4, color: isMe ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
+                {isAskImport && !isMe && (
+                  <ImportListingButton colors={colors} />
+                )}
               </View>
             );
           }}
