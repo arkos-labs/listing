@@ -804,28 +804,6 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
     setSending(false);
   };
 
-  const clearChat = () => {
-    if (messages.length === 0) return;
-    Alert.alert(
-      "Vider la conversation",
-      "Voulez-vous vraiment effacer tous les messages ? Cette action est irréversible.",
-      [
-        { text: "Annuler", style: "cancel" },
-        { 
-          text: "Effacer", 
-          style: "destructive", 
-          onPress: async () => {
-            if (!user?.id) return;
-            setLoading(true);
-            await supabase.from('support_messages').delete().eq('user_id', user.id);
-            setMessages([]);
-            setLoading(false);
-          }
-        }
-      ]
-    );
-  };
-
   const s = styles(colors, isDark);
 
   return (
@@ -838,9 +816,6 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
           <Text style={s.headerTitle}>Support</Text>
           <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: '500' }}>Réponse rapide garantie</Text>
         </View>
-        <TouchableOpacity onPress={clearChat} style={{ marginRight: 12, opacity: messages.length > 0 ? 1 : 0.4 }} disabled={messages.length === 0}>
-          <Trash2 size={20} color={colors.red} />
-        </TouchableOpacity>
         <View style={s.avatar}>
           <Text style={{ fontSize: 18 }}>👤</Text>
         </View>
