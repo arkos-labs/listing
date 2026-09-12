@@ -360,7 +360,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
     const channel = supabase
       .channel('admin_support_realtime')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'support_messages',
       }, (payload) => {
@@ -370,8 +370,13 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
         // Si la conversation ouverte correspond, ajouter le message instantanément
         if (selected && newMsg.user_id === selected.user_id) {
           setMessages(prev => {
-            // Éviter les doublons (optimiste déjà ajouté)
-            if (prev.find(m => m.id === newMsg.id)) return prev;
+            // Mettre à jour si le message existe déjà (ex: read_at mis à jour)
+            const idx = prev.findIndex(m => m.id === newMsg.id);
+            if (idx >= 0) {
+              const clone = [...prev];
+              clone[idx] = newMsg;
+              return clone;
+            }
             return [...prev, newMsg];
           });
           setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
@@ -589,6 +594,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={[s.bubbleText, { color: isAdminMsg ? '#fff' : colors.text }]}>{visibleContent}</Text>
                 <Text style={{ fontSize: 10, marginTop: 4, color: isAdminMsg ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {isAdminMsg && item.read_at && ' • Lu'}
                 </Text>
                 {isAskImport && (
                   <ImportListingButton colors={colors} />
@@ -754,17 +760,26 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
     const channel = supabase
       .channel('support_driver_' + user?.id)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'support_messages',
         filter: `user_id=eq.${user?.id}`,
-      }, (payload) => {
+      }, async (payload) => {
         const newMsg = payload.new as Message;
-        // Les signalements de tarif sont destinés à l'admin uniquement :
-        // le chauffeur ne voit que la confirmation "✅ Tarif corrigé"
         if (isHiddenSignal(newMsg)) return;
+        
+        // Mettre à jour last_read_support avec ce nouveau message !
+        if (newMsg.sender === 'admin') {
+           await AsyncStorage.setItem('last_read_support', new Date(new Date(newMsg.created_at).getTime() + 1000).toISOString());
+        }
+
         setMessages(prev => {
-          if (prev.find(m => m.id === newMsg.id)) return prev;
+          const idx = prev.findIndex(m => m.id === newMsg.id);
+          if (idx >= 0) {
+            const clone = [...prev];
+            clone[idx] = newMsg;
+            return clone;
+          }
           return [...prev, newMsg];
         });
         setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
@@ -885,6 +900,7 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={[s.bubbleText, { color: isMe ? '#fff' : colors.text }]}>{visibleContent}</Text>
                 <Text style={{ fontSize: 10, marginTop: 4, color: isMe ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {isMe && item.read_at && ' • Lu'}
                 </Text>
                 {isAskImport && !isMe && (
                   <ImportListingButton colors={colors} />
