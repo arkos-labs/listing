@@ -100,6 +100,36 @@ function resolveOptimizedQteFromReference(
 }
 
 /**
+ * Calcule le tarif qu'un ramassage optimisé (2ème+ au même enlèvement)
+ * obtiendra réellement : le vrai tarif réduit connu du transporteur en
+ * priorité, sinon la règle générique par zone. Utilisé à la fois par
+ * `calculerTournee` (calcul final) et par l'écran de saisie pour afficher
+ * au chauffeur, dès qu'il choisit le type de course du 2ème+ ramassage,
+ * le tarif qui sera réellement compté — pas le tarif plein qui sera
+ * automatiquement réduit ensuite.
+ */
+export function previewOptimizedQte(
+  qteBonBase: number,
+  lieuEnlevement: string,
+  lieuLivraison: string,
+  vehicule: string,
+  referenceCourses?: ReferenceCourse[]
+): { qteBonOptimise: number; optimise: boolean; delta: number } {
+  const qteReference = resolveOptimizedQteFromReference(
+    referenceCourses, lieuEnlevement, lieuLivraison, vehicule, qteBonBase
+  );
+  if (qteReference !== null && qteReference < qteBonBase) {
+    const delta = qteReference - qteBonBase;
+    return { qteBonOptimise: qteReference, optimise: true, delta };
+  }
+
+  const delta = calculerDelta(lieuEnlevement, lieuLivraison, vehicule);
+  const optimise = delta < 0;
+  const qteBonOptimise = Math.max(0, qteBonBase + delta);
+  return { qteBonOptimise, optimise, delta };
+}
+
+/**
  * Applique la règle d'optimisation transporteur :
  * quand plusieurs courses du même lot sont récupérées au même enlèvement,
  * la première est payée plein pot, les suivantes perdent des bons.
@@ -128,18 +158,9 @@ export function calculerTournee(
       return { ...c, qteBonOptimise: c.qteBonBase, optimise: false, delta: 0 };
     }
 
-    const qteReference = resolveOptimizedQteFromReference(
-      referenceCourses, c.lieuEnlevement, c.lieuLivraison, c.vehicule, c.qteBonBase
+    const { qteBonOptimise, optimise, delta } = previewOptimizedQte(
+      c.qteBonBase, c.lieuEnlevement, c.lieuLivraison, c.vehicule, referenceCourses
     );
-
-    if (qteReference !== null && qteReference < c.qteBonBase) {
-      const delta = qteReference - c.qteBonBase;
-      return { ...c, qteBonOptimise: qteReference, optimise: true, delta };
-    }
-
-    const delta = calculerDelta(c.lieuEnlevement, c.lieuLivraison, c.vehicule);
-    const optimise = delta < 0;
-    const qteBonOptimise = Math.max(0, c.qteBonBase + delta);
 
     return { ...c, qteBonOptimise, optimise, delta };
   });

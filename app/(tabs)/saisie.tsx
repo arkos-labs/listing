@@ -20,7 +20,8 @@ import { formatQte, formatEuro } from '@/lib/kpi';
 import { computeMontant } from '@/lib/pricing';
 import { generateMotivationMessage } from '@/lib/motivation';
 import { recordCourseAdded, getUserHabits } from '@/lib/learningEngine';
-import { SimulateurCourse, calculerTournee } from '@/lib/optimisation';
+import { SimulateurCourse, calculerTournee, previewOptimizedQte } from '@/lib/optimisation';
+import { normalize } from '@/lib/text';
 import { radius, shadow, shadowMd } from '@/lib/theme';
 import { detectDomaine } from '@/lib/domaine';
 import type { CourseInput } from '@/types/course';
@@ -109,6 +110,16 @@ export default function SaisieScreen() {
   const routeVehicules = routeVehiculesResult?.options ?? [];
   const routeReversed = routeVehiculesResult?.reversed ?? false;
 
+  // true si le lieu d'enlèvement en cours de saisie est déjà celui d'une
+  // course du lot (2ème+ ramassage au même endroit dans la même tournée).
+  // Sert uniquement à AFFICHER au chauffeur le tarif réellement optimisé sur
+  // les chips "Type de course" — le tarif plein reste celui envoyé à
+  // selectRouteVehicule/qteBonBase, calculerTournee applique la réduction.
+  const isRepeatPickup = useMemo(
+    () => batch.some((b) => normalize(b.lieuEnlevement.trim()) === normalize(form.lieuEnlevement.trim())),
+    [batch, form.lieuEnlevement]
+  );
+
   // Calcul de l'optimisation sur le lot complet (courses validées + course en cours)
   const lotComplet = useMemo<SimulateurCourse[]>(() => {
     const courant: SimulateurCourse[] = (form.lieuLivraison.trim() && form.qteBon > 0)
@@ -118,6 +129,15 @@ export default function SaisieScreen() {
   }, [batch, form.lieuLivraison, form.qteBon, form.vehicule, form.lieuEnlevement]);
 
   const resultatLot = useMemo(() => calculerTournee(lotComplet, prixBon, referenceCourses), [lotComplet, prixBon, referenceCourses]);
+
+  // Contribution RÉELLE (après optimisation) de la course en cours de saisie
+  // au total du lot — à ne pas confondre avec form.qteBon qui est le tarif
+  // plein/base saisi. Si ce 2ème+ ramassage est réduit, ce nombre reflète
+  // ce qui sera effectivement compté, pas ce qui a été tapé/sélectionné.
+  const courantDansLot = form.lieuLivraison.trim().length > 0 && form.qteBon > 0;
+  const qteCetteCourse = courantDansLot
+    ? resultatLot.courses[resultatLot.courses.length - 1]?.qteBonOptimise ?? form.qteBon
+    : form.qteBon;
 
   const addToBatch = () => {
     if (!form.lieuEnlevement.trim() || !form.lieuLivraison.trim() || form.qteBon <= 0) return;
@@ -623,17 +643,29 @@ export default function SaisieScreen() {
             )}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {routeVehicules.map((rv) => (
-              <TouchableOpacity
-                key={rv.vehicule}
-                style={[styles.typeChip, form.vehicule === rv.vehicule && styles.typeChipActive]}
-                onPress={() => selectRouteVehicule(rv.vehicule, rv.qteBon)}
-              >
-                <Text style={[styles.typeChipText, form.vehicule === rv.vehicule && styles.typeChipTextActive]} numberOfLines={1}>
-                  {rv.vehicule} · {formatQte(rv.qteBon)} bon{rv.qteBon > 1 ? 's' : ''}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {routeVehicules.map((rv) => {
+              // Le tarif ENVOYÉ reste toujours le tarif plein (rv.qteBon) —
+              // c'est calculerTournee qui décide de l'optimisation en
+              // fonction de la position réelle dans le lot. Seul l'AFFICHAGE
+              // du chip montre au chauffeur le tarif qu'il obtiendra
+              // vraiment si ce trajet est déjà un ramassage précédent du lot.
+              const preview = isRepeatPickup
+                ? previewOptimizedQte(rv.qteBon, form.lieuEnlevement, form.lieuLivraison, rv.vehicule, referenceCourses)
+                : null;
+              const displayQte = preview?.optimise ? preview.qteBonOptimise : rv.qteBon;
+              return (
+                <TouchableOpacity
+                  key={rv.vehicule}
+                  style={[styles.typeChip, form.vehicule === rv.vehicule && styles.typeChipActive]}
+                  onPress={() => selectRouteVehicule(rv.vehicule, rv.qteBon)}
+                >
+                  <Text style={[styles.typeChipText, form.vehicule === rv.vehicule && styles.typeChipTextActive]} numberOfLines={1}>
+                    {rv.vehicule} · {formatQte(displayQte)} bon{displayQte > 1 ? 's' : ''}
+                    {preview?.optimise ? ' (2e ramassage)' : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
       ) : null}
@@ -682,7 +714,7 @@ export default function SaisieScreen() {
           <View style={styles.stepperCenter}>
             <Text style={styles.stepperValue}>{formatQte(resultatLot.totalBonsOptimise)}</Text>
             {batch.length > 0 && form.qteBon > 0 ? (
-              <Text style={styles.stepperSub}>dont {formatQte(form.qteBon)} cette course</Text>
+              <Text style={styles.stepperSub}>dont {formatQte(qteCetteCourse)} cette course</Text>
             ) : autoFromBase ? (
               <View style={styles.autoHint}>
                 {exactMatch?.reversed
