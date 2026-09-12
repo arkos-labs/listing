@@ -67,6 +67,30 @@ function calculerDelta(
 }
 
 /**
+ * Corrections manuelles confirmées par l'admin pour des trajets où le vrai
+ * delta du 2ème+ ramassage diffère de la règle générique par zone. Ne
+ * dépend PAS de la base de référence : celle-ci est intégralement remplacée
+ * à chaque nouvel import (voir ReferenceContext.importFiles /
+ * clearReferenceCourses) et peut donc perdre la trace du tarif réduit
+ * d'un import à l'autre si le fichier du moment ne contient pas de 2ème
+ * ramassage pour ce trajet. Cette table, elle, reste valable dans le temps.
+ *
+ * Clé : "<enlèvement normalisé>|<livraison normalisée>" (accents/casse
+ * ignorés). Ajouter une entrée dès qu'un chauffeur/l'admin confirme un
+ * delta différent de −0.5 (Paris↔Paris) / −1.0 (banlieue) pour un trajet.
+ */
+const DELTA_OVERRIDES: Record<string, number> = {
+  // Champcueil (Georges Clémenceau) → Mondor : 7 bons au 1er ramassage,
+  // 5 bons au suivant → delta réel −2, confirmé par l'admin (pas −1).
+  [`${normalize('GEORGES CLEMENCEAU - 91750 CHAMPCUEIL')}|${normalize('MONDOR - 94015 CRETEIL')}`]: -2,
+};
+
+function resolveOverrideDelta(lieuEnlevement: string, lieuLivraison: string): number | null {
+  const key = `${normalize(lieuEnlevement.trim())}|${normalize(lieuLivraison.trim())}`;
+  return Object.prototype.hasOwnProperty.call(DELTA_OVERRIDES, key) ? DELTA_OVERRIDES[key] : null;
+}
+
+/**
  * Cherche, dans la base de référence (fichiers du transporteur), le vrai
  * tarif "2ème+ ramassage au même enlèvement" pour ce trajet + véhicule
  * exact — quand le transporteur a déjà facturé ce cas précis avec un
@@ -115,6 +139,16 @@ export function previewOptimizedQte(
   vehicule: string,
   referenceCourses?: ReferenceCourse[]
 ): { qteBonOptimise: number; optimise: boolean; delta: number } {
+  // 1. Correction manuelle confirmée par l'admin — prioritaire, ne dépend
+  //    pas de l'état courant (mutable) de la base de référence.
+  const overrideDelta = resolveOverrideDelta(lieuEnlevement, lieuLivraison);
+  if (overrideDelta !== null) {
+    const optimise = overrideDelta < 0;
+    const qteBonOptimise = Math.max(0, qteBonBase + overrideDelta);
+    return { qteBonOptimise, optimise, delta: overrideDelta };
+  }
+
+  // 2. Vrai tarif réduit connu de la base de référence pour ce trajet+véhicule.
   const qteReference = resolveOptimizedQteFromReference(
     referenceCourses, lieuEnlevement, lieuLivraison, vehicule, qteBonBase
   );
@@ -123,6 +157,7 @@ export function previewOptimizedQte(
     return { qteBonOptimise: qteReference, optimise: true, delta };
   }
 
+  // 3. À défaut, règle générique par zone.
   const delta = calculerDelta(lieuEnlevement, lieuLivraison, vehicule);
   const optimise = delta < 0;
   const qteBonOptimise = Math.max(0, qteBonBase + delta);
