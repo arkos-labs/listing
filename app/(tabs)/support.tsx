@@ -766,7 +766,13 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       
       // Sauvegarde locale de la lecture pour être sûr que la pastille disparaît, 
       // même si l'UPDATE échoue (à cause d'un blocage RLS éventuel).
-      await AsyncStorage.setItem('last_read_support', new Date().toISOString());
+      if (data && data.length > 0) {
+        const maxTime = Math.max(...data.map(m => new Date(m.created_at).getTime()));
+        // On rajoute 1 seconde pour être sûr que le filtre d'exclusion l'englobe parfaitement
+        await AsyncStorage.setItem('last_read_support', new Date(maxTime + 1000).toISOString());
+      } else {
+        await AsyncStorage.setItem('last_read_support', new Date().toISOString());
+      }
       
       // Marquer les messages admin comme lus
       await supabase
