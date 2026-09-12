@@ -127,7 +127,12 @@ export function resolveQte(
 
   const counts = new Map<number, number>();
   for (const m of matches) counts.set(m.qteBon, (counts.get(m.qteBon) ?? 0) + 1);
-  const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  // Tri par fréquence décroissante ; en cas d'égalité, on préfère le tarif le
+  // plus élevé (tarif plein / 1er ramassage) plutôt qu'une valeur arbitraire
+  // — une saisie isolée (pas un lot) n'est jamais présumée optimisée. La
+  // réduction éventuelle (2e+ ramassage au même endroit) est appliquée à
+  // part par calculerTournee, pas ici.
+  const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || b[0] - a[0]);
   const [qteBon, count] = sorted[0];
 
   return { qteBon, count, totalMatches: matches.length, ambiguous: sorted.length > 1 };
@@ -199,7 +204,9 @@ export function listVehiculesForRoute(
 
   const result: RouteVehiculeOption[] = [];
   for (const [vehicule, qteCounts] of byVehicule) {
-    const sorted = Array.from(qteCounts.entries()).sort((a, b) => b[1] - a[1]);
+    // Égalité de fréquence → on préfère le tarif plein (le plus élevé), voir
+    // resolveQte ci-dessus pour la même règle et sa justification.
+    const sorted = Array.from(qteCounts.entries()).sort((a, b) => b[1] - a[1] || b[0] - a[0]);
     const totalCount = Array.from(qteCounts.values()).reduce((s, v) => s + v, 0);
     result.push({ vehicule, qteBon: sorted[0][0], count: totalCount });
   }

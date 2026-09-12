@@ -117,7 +117,7 @@ export default function SaisieScreen() {
     return [...batch, ...courant];
   }, [batch, form.lieuLivraison, form.qteBon, form.vehicule, form.lieuEnlevement]);
 
-  const resultatLot = useMemo(() => calculerTournee(lotComplet, prixBon), [lotComplet, prixBon]);
+  const resultatLot = useMemo(() => calculerTournee(lotComplet, prixBon, referenceCourses), [lotComplet, prixBon, referenceCourses]);
 
   const addToBatch = () => {
     if (!form.lieuEnlevement.trim() || !form.lieuLivraison.trim() || form.qteBon <= 0) return;

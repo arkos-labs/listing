@@ -1,5 +1,7 @@
 import { normalize } from '@/lib/text';
 import { computeMontant } from '@/lib/pricing';
+import { matchByPickupAndDelivery } from '@/lib/reference';
+import type { ReferenceCourse } from '@/types/course';
 
 export interface SimulateurCourse {
   id: string;
@@ -65,9 +67,45 @@ function calculerDelta(
 }
 
 /**
+ * Cherche, dans la base de référence (fichiers du transporteur), le vrai
+ * tarif "2ème+ ramassage au même enlèvement" pour ce trajet + véhicule
+ * exact — quand le transporteur a déjà facturé ce cas précis avec un
+ * montant différent du tarif plein (ex: Champcueil → Mondor : 7 bons au
+ * 1er ramassage, 5 bons au suivant, pas 6 comme le donnerait la règle
+ * générique par zone).
+ *
+ * Retourne cette valeur réelle uniquement si :
+ *  - au moins deux tarifs distincts existent pour ce trajet+véhicule ;
+ *  - le tarif de base actuellement saisi correspond au plus élevé des deux
+ *    (sinon on ne sait pas lequel des deux tarifs représente le "plein tarif").
+ * Sinon retourne null et on retombe sur la règle générique par zone.
+ */
+function resolveOptimizedQteFromReference(
+  referenceCourses: ReferenceCourse[] | undefined,
+  lieuEnlevement: string,
+  lieuLivraison: string,
+  vehicule: string,
+  qteBonBase: number
+): number | null {
+  if (!referenceCourses || referenceCourses.length === 0) return null;
+  const matches = matchByPickupAndDelivery(referenceCourses, lieuEnlevement, lieuLivraison, vehicule);
+  if (matches.length === 0) return null;
+
+  const distinctQte = Array.from(new Set(matches.map((m) => m.qteBon))).sort((a, b) => b - a);
+  if (distinctQte.length < 2) return null;
+
+  const [plein, reduit] = distinctQte;
+  if (Math.abs(qteBonBase - plein) > 0.01) return null;
+  return reduit;
+}
+
+/**
  * Applique la règle d'optimisation transporteur :
  * quand plusieurs courses du même lot sont récupérées au même enlèvement,
- * la première est payée plein pot, les suivantes perdent des bons selon la zone :
+ * la première est payée plein pot, les suivantes perdent des bons.
+ * Le vrai tarif réduit du transporteur (base de référence) est utilisé en
+ * priorité quand il est connu pour ce trajet+véhicule exact ; à défaut on
+ * retombe sur la règle générique par zone :
  *   - Paris ↔ Paris  → −0.5 bon
  *   - Banlieue (l'un ou l'autre) → −1.0 bon
  *   - PROGRAMME → pas d'optimisation
@@ -76,7 +114,8 @@ function calculerDelta(
  */
 export function calculerTournee(
   courses: SimulateurCourse[],
-  prixBon: number
+  prixBon: number,
+  referenceCourses?: ReferenceCourse[]
 ): ResultatTournee {
   const compteurEnlevement = new Map<string, number>();
 
@@ -85,7 +124,20 @@ export function calculerTournee(
     const dejaSeen = compteurEnlevement.get(cle) ?? 0;
     compteurEnlevement.set(cle, dejaSeen + 1);
 
-    const delta = dejaSeen > 0 ? calculerDelta(c.lieuEnlevement, c.lieuLivraison, c.vehicule) : 0;
+    if (dejaSeen === 0) {
+      return { ...c, qteBonOptimise: c.qteBonBase, optimise: false, delta: 0 };
+    }
+
+    const qteReference = resolveOptimizedQteFromReference(
+      referenceCourses, c.lieuEnlevement, c.lieuLivraison, c.vehicule, c.qteBonBase
+    );
+
+    if (qteReference !== null && qteReference < c.qteBonBase) {
+      const delta = qteReference - c.qteBonBase;
+      return { ...c, qteBonOptimise: qteReference, optimise: true, delta };
+    }
+
+    const delta = calculerDelta(c.lieuEnlevement, c.lieuLivraison, c.vehicule);
     const optimise = delta < 0;
     const qteBonOptimise = Math.max(0, c.qteBonBase + delta);
 

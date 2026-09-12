@@ -57,8 +57,8 @@ export default function SimulateurScreen() {
   );
 
   const resultat = useMemo(
-    () => calculerTournee(courses, prixBon),
-    [courses, prixBon]
+    () => calculerTournee(courses, prixBon, referenceCourses),
+    [courses, prixBon, referenceCourses]
   );
 
   const supprimerCourse = (id: string) => setCourses(cs => cs.filter(c => c.id !== id));
