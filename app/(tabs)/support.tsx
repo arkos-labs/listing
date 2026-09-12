@@ -315,7 +315,10 @@ function ImportListingButton({ colors }: { colors: any }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const m = `📥 Import de listing (via Support) par ${user.email}\n\nLignes ajoutées : ${result.inserted}\nLignes existantes ignorées : ${result.duplicates + result.alreadyInDb}\nErreurs : ${result.errors}\n\n|||IMPORT_LISTING:true|||`;
-          await supabase.from('support_messages').insert({ user_id: user.id, content: m, sender: 'user' });
+          await supabase.from('support_messages').insert([
+            { user_id: user.id, content: m, sender: 'user' },
+            { user_id: user.id, content: '✅ Merci pour votre import ! Vos tarifs seront mis à jour très prochainement dans la base de référence.', sender: 'admin' }
+          ]);
         }
       } catch (e) {}
     } catch (e: any) {

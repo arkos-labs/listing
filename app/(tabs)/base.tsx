@@ -120,7 +120,10 @@ export default function BaseScreen() {
           const nom = prenom || currentUser.email || 'Chauffeur';
           const totalNew = result.inserted;
           const msg = `📥 Import de listing (depuis la Base) par ${nom}\n\nLignes ajoutées : ${totalNew}\nLignes existantes ignorées : ${result.duplicates + result.alreadyInDb}\nErreurs : ${result.errors}\n\n|||IMPORT_LISTING:true|||`;
-          await supabase.from('support_messages').insert({ user_id: currentUser.id, content: msg, sender: 'user' });
+          await supabase.from('support_messages').insert([
+            { user_id: currentUser.id, content: msg, sender: 'user' },
+            { user_id: currentUser.id, content: '✅ Merci pour votre import ! Vos tarifs seront mis à jour très prochainement dans la base de référence.', sender: 'admin' }
+          ]);
         }
       } catch (e) {
         console.warn('[import] message support silencieux non envoyé', e);
