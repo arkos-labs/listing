@@ -14,6 +14,9 @@ import { GoalProvider } from '@/context/GoalContext';
 import { SyncProvider } from '@/context/SyncContext';
 import { WorkProvider } from '@/context/WorkContext';
 import { FavorisProvider } from '@/context/FavorisContext';
+import { ListingNotificationsProvider } from '@/context/ListingNotificationsContext';
+import { RealtimeToast } from '@/components/RealtimeToast';
+import { ListingNotificationBell } from '@/components/ListingNotificationBell';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -77,17 +80,21 @@ export default function RootLayout() {
               <MaintenanceProvider>
                 <MotoProvider>
                   <ReferenceProvider>
-                    <ClosuresProvider>
-                      <GoalProvider>
-                        <SyncProvider>
-                          <WorkProvider>
-                            <FavorisProvider>
-                              <Stack screenOptions={{ headerShown: false }} />
-                            </FavorisProvider>
-                          </WorkProvider>
-                        </SyncProvider>
-                      </GoalProvider>
-                    </ClosuresProvider>
+                    <ListingNotificationsProvider>
+                      <ClosuresProvider>
+                        <GoalProvider>
+                          <SyncProvider>
+                            <WorkProvider>
+                              <FavorisProvider>
+                                <Stack screenOptions={{ headerShown: false }} />
+                                <RealtimeToast />
+                                <ListingNotificationBell />
+                              </FavorisProvider>
+                            </WorkProvider>
+                          </SyncProvider>
+                        </GoalProvider>
+                      </ClosuresProvider>
+                    </ListingNotificationsProvider>
                   </ReferenceProvider>
                 </MotoProvider>
               </MaintenanceProvider>

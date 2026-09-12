@@ -109,6 +109,26 @@ export function ReferenceProvider({ children }: { children: React.ReactNode }) {
       }).eq('id', user.id);
     }
 
+    // Notification "listing ajouté" visible par tout le monde (voir
+    // ListingNotificationsContext) — seulement si des courses ont vraiment
+    // été ajoutées, pas pour un fichier entièrement déjà connu.
+    if (user && inserted > 0) {
+      try {
+        const { data: notif, error: notifErr } = await supabase
+          .from('listing_notifications')
+          .insert({ course_count: inserted, created_by: user.id })
+          .select('id')
+          .single();
+        // On marque tout de suite comme vue par la personne qui vient de
+        // faire l'import : elle sait déjà qu'elle vient de l'ajouter.
+        if (!notifErr && notif) {
+          await supabase.from('listing_notification_reads').insert({ notification_id: notif.id, user_id: user.id });
+        }
+      } catch (e) {
+        console.warn('[ReferenceContext] notification import non envoyée', e);
+      }
+    }
+
     await refresh();
     return result;
   }, [refresh]);
