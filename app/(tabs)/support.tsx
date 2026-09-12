@@ -387,11 +387,24 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       const { data: profiles } = await supabase
         .rpc('get_all_profiles');
 
+      // Nettoyage automatique : supprimer les messages lus il y a plus de 15 jours
+      const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from('support_messages')
+        .delete()
+        .not('read_at', 'is', null)
+        .lt('read_at', fifteenDaysAgo);
+
       // Tous les messages
-      const { data: msgs } = await supabase
+      const { data: rawMsgs } = await supabase
         .from('support_messages')
         .select('*')
         .order('created_at', { ascending: false });
+        
+      const msgs = (rawMsgs ?? []).filter(m => {
+        if (!m.read_at) return true;
+        return new Date(m.read_at).getTime() > Date.now() - 15 * 24 * 60 * 60 * 1000;
+      });
 
       const msgMap = new Map<string, { last_message: string; last_at: string; unread: number }>();
       for (const m of (msgs ?? [])) {
@@ -455,7 +468,13 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
-    setMessages(data ?? []);
+      
+    const msgs = (data ?? []).filter(m => {
+      if (!m.read_at) return true;
+      return new Date(m.read_at).getTime() > Date.now() - 15 * 24 * 60 * 60 * 1000;
+    });
+    setMessages(msgs);
+    
     await supabase
       .from('support_messages')
       .update({ read_at: new Date().toISOString() })
@@ -761,12 +780,29 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const fetchMessages = async () => {
     try {
       if (!user?.id) return;
+      
+      // Essayer de supprimer les vieux messages côté serveur
+      const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from('support_messages')
+        .delete()
+        .eq('user_id', user.id)
+        .not('read_at', 'is', null)
+        .lt('read_at', fifteenDaysAgo);
+        
       const { data } = await supabase
         .from('support_messages')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
-      setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
+        
+      const msgs = (data ?? []).filter(m => {
+        if (isHiddenSignal(m)) return false;
+        if (m.read_at && new Date(m.read_at).getTime() < Date.now() - 15 * 24 * 60 * 60 * 1000) return false;
+        return true;
+      });
+      setMessages(msgs);
+      
       // Marquer les messages admin comme lus
       await supabase
         .from('support_messages')
