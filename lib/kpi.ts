@@ -17,10 +17,19 @@ export function computeKpi(courses: Course[]): DashboardKpi {
   for (const c of courses) {
     const ca = c.montantAchat;
     
-    // Parse en date locale pour éviter les décalages UTC (ex: 01h du mat en France = 23h la veille en UTC)
-    const d = new Date(c.dateSaisie);
-    const isToday = d.getFullYear() === y && d.getMonth() === mo && d.getDate() === day;
-    const isMonth = d.getFullYear() === y && d.getMonth() === mo;
+    // Parse en date locale. Sécuriser le format pour React Native (remplacer l'espace par T)
+    const dateStr = c.dateSaisie || '';
+    const safeIso = dateStr.replace(' ', 'T');
+    const d = new Date(safeIso);
+    
+    // Si la date est invalide, on fallback sur la comparaison de préfixe
+    const isToday = isNaN(d.getTime()) 
+      ? dateStr.startsWith(todayPrefix) 
+      : (d.getFullYear() === y && d.getMonth() === mo && d.getDate() === day);
+      
+    const isMonth = isNaN(d.getTime())
+      ? dateStr.startsWith(monthPrefix)
+      : (d.getFullYear() === y && d.getMonth() === mo);
     
     if (isToday) {
       coursesJour += 1;
