@@ -351,6 +351,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
   const flatRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -482,6 +483,29 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
     setSending(false);
   };
 
+  const askAllForListing = async () => {
+    if (broadcasting) return;
+    setBroadcasting(true);
+    
+    // Pour ne pas envoyer au SUPER_ADMIN lui-même
+    const usersToNotify = conversations.filter(c => c.email !== SUPER_ADMIN);
+    
+    if (usersToNotify.length === 0) {
+      setBroadcasting(false);
+      return;
+    }
+
+    const messagesToInsert = usersToNotify.map(c => ({
+      user_id: c.user_id,
+      content: `Veuillez importer vos derniers listings Excel ou PDF (via le bouton ci-dessous) pour que l'application puisse mieux calculer vos courses.\n|||ASK_IMPORT|||`,
+      sender: 'admin'
+    }));
+
+    await supabase.from('support_messages').insert(messagesToInsert);
+    await fetchConversations();
+    setBroadcasting(false);
+  };
+
   const s = styles(colors, isDark);
 
   // Vue conversation ouverte
@@ -600,6 +624,18 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
         </TouchableOpacity>
         <Text style={s.headerTitle}>Messages des chauffeurs</Text>
       </View>
+
+      {conversations.filter(c => c.email !== SUPER_ADMIN).length > 0 && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+          <TouchableOpacity 
+            style={{ backgroundColor: '#134024', borderRadius: 8, paddingVertical: 10, alignItems: 'center', opacity: broadcasting ? 0.6 : 1 }}
+            onPress={askAllForListing}
+            disabled={broadcasting}
+          >
+            {broadcasting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>📄 Demander les listings à TOUS les chauffeurs</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator color="#134024" style={{ marginTop: 40 }} />
