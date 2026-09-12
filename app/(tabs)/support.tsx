@@ -522,6 +522,8 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             try { if (newRouteMatch) newRouteData = JSON.parse(newRouteMatch[1]); } catch {}
             const isNewRouteIssue = !!newRouteData && (newRouteData.routes?.length ?? 0) > 0;
 
+            const isAskImport = item.content.includes('|||ASK_IMPORT|||');
+
             // Texte visible (sans les blocs de données techniques)
             const visibleContent = item.content
               .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
@@ -536,6 +538,9 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
                 <Text style={{ fontSize: 10, marginTop: 4, color: isAdminMsg ? 'rgba(255,255,255,0.6)' : colors.textFaint, textAlign: 'right' }}>
                   {new Date(item.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
+                {isAskImport && (
+                  <ImportListingButton colors={colors} />
+                )}
                 {isFareIssue && fareData && (
                   <FareCorrectButton
                     fareData={fareData}
