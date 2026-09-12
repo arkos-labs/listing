@@ -767,17 +767,6 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
       setMessages((data ?? []).filter(m => !isHiddenSignal(m)));
-      
-      // Sauvegarde locale de la lecture pour être sûr que la pastille disparaît, 
-      // même si l'UPDATE échoue (à cause d'un blocage RLS éventuel).
-      if (data && data.length > 0) {
-        const maxTime = Math.max(...data.map(m => new Date(m.created_at).getTime()));
-        // On rajoute 1 seconde pour être sûr que le filtre d'exclusion l'englobe parfaitement
-        await AsyncStorage.setItem('last_read_support', new Date(maxTime + 1000).toISOString());
-      } else {
-        await AsyncStorage.setItem('last_read_support', new Date().toISOString());
-      }
-      
       // Marquer les messages admin comme lus
       await supabase
         .from('support_messages')
@@ -792,6 +781,15 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       setLoading(false);
     }
   };
+
+  // Mise à jour de la mémoire locale à CHAQUE fois qu'un message s'affiche, 
+  // y compris la réponse automatique après un import.
+  useEffect(() => {
+    if (messages.length > 0) {
+      const maxTime = Math.max(...messages.map(m => new Date(m.created_at).getTime()));
+      AsyncStorage.setItem('last_read_support', new Date(maxTime + 1000).toISOString()).catch(() => {});
+    }
+  }, [messages]);
 
   const send = async () => {
     if (!text.trim() || sending) return;
