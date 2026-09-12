@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
 import { Send, ArrowLeft, MessageSquare } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useReference } from '@/context/ReferenceContext';
@@ -753,6 +753,10 @@ function DriverView({ colors, isDark }: { colors: any; isDark: boolean }) {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
+
+  useFocusEffect(useCallback(() => {
+    if (user?.id) fetchMessages();
+  }, [user?.id]));
 
   const fetchMessages = async () => {
     try {
