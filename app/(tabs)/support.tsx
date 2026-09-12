@@ -19,8 +19,10 @@ type FareData = { ids: string[]; qte: number; montant: number; routes?: FareRout
 const isFareSignal = (m: { content: string }) => m.content.includes('|||FARE_DATA:');
 /** Message technique "course hors base" (visible uniquement par l'admin). */
 const isNewRouteSignal = (m: { content: string }) => m.content.includes('|||NEW_ROUTE:');
+/** Message technique import de listing */
+const isImportSignal = (m: { content: string }) => m.content.includes('|||IMPORT_LISTING:');
 /** Tout signal technique caché au chauffeur. */
-const isHiddenSignal = (m: { content: string }) => isFareSignal(m) || isNewRouteSignal(m);
+const isHiddenSignal = (m: { content: string }) => isFareSignal(m) || isNewRouteSignal(m) || isImportSignal(m);
 
 const SUPER_ADMIN = 'cherkinicolas@gmail.com';
 
@@ -440,6 +442,7 @@ function AdminView({ colors, isDark }: { colors: any; isDark: boolean }) {
             const visibleContent = item.content
               .replace(/\s*\|\|\|FARE_DATA:.+?\|\|\|/s, '')
               .replace(/\s*\|\|\|NEW_ROUTE:.+?\|\|\|/s, '')
+              .replace(/\s*\|\|\|IMPORT_LISTING:.+?\|\|\|/s, '')
               .trim();
 
             return (

@@ -5,6 +5,8 @@ import { useReference } from '@/context/ReferenceContext';
 import { useTheme } from '@/context/ThemeContext';
 import { parseExcelFile } from '@/lib/excelImport';
 import { formatImportResult } from '@/lib/supabaseSync';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import { parsePdfFile } from '@/lib/pdfImport';
 import { includesNormalized } from '@/lib/text';
 import { formatQte } from '@/lib/kpi';
@@ -23,6 +25,7 @@ import { CANONICAL_VEHICULES, canonicalizeVehicule } from '@/lib/vehicule';
 
 export default function BaseScreen() {
   const { referenceCourses, importFiles, clearAll } = useReference();
+  const { prenom } = useAuth();
   const { colors } = useTheme();
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -110,6 +113,18 @@ export default function BaseScreen() {
       const result = await importFiles(allInputs, filesToUpload);
       const errMsg = parseErrors > 0 ? ` (${parseErrors} fichier${parseErrors > 1 ? 's' : ''} ignoré${parseErrors > 1 ? 's' : ''})` : '';
       setImportMsg(`${formatImportResult(result)}${errMsg}`);
+      
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const nom = prenom || currentUser.email || 'Chauffeur';
+          const totalNew = result.inserted;
+          const msg = `📥 Import de listing (depuis la Base) par ${nom}\n\nLignes ajoutées : ${totalNew}\nLignes existantes ignorées : ${result.duplicates + result.alreadyInDb}\nErreurs : ${result.errors}\n\n|||IMPORT_LISTING:true|||`;
+          await supabase.from('support_messages').insert({ user_id: currentUser.id, content: msg, sender: 'user' });
+        }
+      } catch (e) {
+        console.warn('[import] message support silencieux non envoyé', e);
+      }
     } catch (e: any) {
       setImportMsg(`Erreur : ${e?.message ?? String(e)}`);
       console.error('[import]', e);

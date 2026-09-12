@@ -249,6 +249,19 @@ export default function DashboardScreen() {
       const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
       const result = await importFiles(allInputs, filesToUpload);
       setImportMsg(formatImportResult(result));
+      
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const nom = prenom || currentUser.email || 'Chauffeur';
+          const totalNew = result.inserted;
+          const msg = `📥 Import de listing par ${nom}\n\nLignes ajoutées : ${totalNew}\nLignes existantes ignorées : ${result.duplicates + result.alreadyInDb}\nErreurs : ${result.errors}\n\n|||IMPORT_LISTING:true|||`;
+          await supabase.from('support_messages').insert({ user_id: currentUser.id, content: msg, sender: 'user' });
+        }
+      } catch (e) {
+        console.warn('[import] message support silencieux non envoyé', e);
+      }
+
       setTimeout(() => setImportMsg(null), result.errors > 0 ? 8000 : 4000);
     } catch (e: any) {
       setImportMsg(`❌ ${e?.message ?? String(e)}`);
