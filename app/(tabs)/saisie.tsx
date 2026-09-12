@@ -17,6 +17,7 @@ import {
   RouteVehiculeOption,
 } from '@/lib/reference';
 import { formatQte, formatEuro } from '@/lib/kpi';
+import { canonicalizeVehicule } from '@/lib/vehicule';
 import { computeMontant } from '@/lib/pricing';
 import { generateMotivationMessage } from '@/lib/motivation';
 import { recordCourseAdded, getUserHabits } from '@/lib/learningEngine';
@@ -109,6 +110,15 @@ export default function SaisieScreen() {
 
   const routeVehicules = routeVehiculesResult?.options ?? [];
   const routeReversed = routeVehiculesResult?.reversed ?? false;
+
+  // "2 ROUES EXPRESS" est le type le plus courant : s'il existe pour ce
+  // trajet, on le sélectionne automatiquement (tarif précis pour CE type,
+  // pas une moyenne tous types confondus) au lieu d'attendre que le
+  // chauffeur clique sur la chip à chaque course.
+  const autoVehiculeOption = useMemo(
+    () => routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null,
+    [routeVehicules]
+  );
 
   // true si le lieu d'enlèvement en cours de saisie est déjà celui d'une
   // course du lot (2ème+ ramassage au même endroit dans la même tournée).
@@ -221,13 +231,24 @@ export default function SaisieScreen() {
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison, form.vehicule]);
 
   const exactMatchKey = exactMatch ? `${exactMatch.qteBon}|${exactMatch.ambiguous}|${exactMatch.reversed}` : '';
+  const autoVehiculeKey = autoVehiculeOption ? `${autoVehiculeOption.vehicule}|${autoVehiculeOption.qteBon}` : '';
 
   useEffect(() => {
+    // Priorité : si "2 ROUES EXPRESS" existe pour ce trajet et qu'aucun type
+    // n'est déjà choisi, on le sélectionne automatiquement avec son tarif
+    // précis — plus fiable qu'un tarif agrégé tous types confondus.
+    if (autoVehiculeOption && !form.vehicule) {
+      const montantAchat = computeMontant(autoVehiculeOption.qteBon, prixBon);
+      setForm((f) => (f.vehicule ? f : { ...f, vehicule: autoVehiculeOption.vehicule, qteBon: autoVehiculeOption.qteBon, montantAchat }));
+      setQteBonSuggere(autoVehiculeOption.qteBon);
+      setAutoFromBase(true);
+      return;
+    }
     if (!exactMatch) { if (autoFromBase) { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: 0 })); setQteBonSuggere(null); } return; }
     setForm((f) => ({ ...f, qteBon: exactMatch.qteBon }));
     setQteBonSuggere(exactMatch.qteBon);
     setAutoFromBase(true);
-  }, [exactMatchKey]);
+  }, [exactMatchKey, autoVehiculeKey]);
 
   useEffect(() => {
     setForm((f) => ({ ...f, montantAchat: computeMontant(f.qteBon, prixBon) }));
