@@ -8,8 +8,11 @@ export type UserRole = 'admin' | 'driver' | null;
 interface AuthContextValue {
   isAuthenticated: boolean | null;
   user: User | null;
-  role: UserRole;
+  role: UserRole; // rôle principal (pour compatibilité)
+  roles: UserRole[]; // tous les rôles de l'utilisateur
   prenom: string;
+  isAdmin: boolean;
+  isDriver: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, prenom: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
@@ -20,6 +23,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [role, setRole] = useState<UserRole>(null);
+  const [roles, setRoles] = useState<UserRole[]>([]);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [prenom, setPrenom] = useState('');
   const segments = useSegments();
@@ -32,20 +36,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('role, prenom')
+        .select('role, roles, prenom')
         .eq('id', userId)
         .single();
 
       if (data) {
-        setRole(data.role as UserRole);
+        // Supporter les deux formats: colonne 'role' (ancien) ou 'roles' (nouveau)
+        let userRoles: UserRole[] = [];
+
+        // Essayer de charger 'roles' (JSON array)
+        if (Array.isArray(data.roles)) {
+          userRoles = data.roles as UserRole[];
+        } else if (typeof data.roles === 'string') {
+          // Si c'est une string JSON, la parser
+          try {
+            userRoles = JSON.parse(data.roles) as UserRole[];
+          } catch {
+            userRoles = [];
+          }
+        }
+
+        // Si 'roles' n'existe pas, fallback sur 'role'
+        if (userRoles.length === 0 && data.role) {
+          userRoles = [data.role as UserRole];
+        }
+
+        const filteredRoles = userRoles.filter(r => r !== null);
+        setRoles(filteredRoles);
+        // Rôle principal = 'driver' si présent, sinon le premier rôle
+        const mainRole = filteredRoles.includes('driver') ? 'driver' : (filteredRoles[0] as UserRole);
+        setRole(mainRole);
         setPrenom(data.prenom ?? '');
+        console.log('[AuthContext] Profil chargé:', { email: data.email, rolesRaw: data.roles, roles: filteredRoles, role: mainRole });
       } else {
         console.warn('[AuthContext] Profil introuvable pour', userId, error?.message);
         setRole(null);
+        setRoles([]);
       }
     } catch (e) {
       console.error('[AuthContext] Erreur loadProfile:', e);
       setRole(null);
+      setRoles([]);
     } finally {
       setProfileLoaded(true);
       loadingRef.current = false;
@@ -69,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loadProfile(session.user.id);
       } else {
         setRole(null);
+        setRoles([]);
         setPrenom('');
         setProfileLoaded(true);
       }
@@ -87,19 +119,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const inLogin = segments[0] === 'login' || segments[0] === 'signup'
       || segments[0] === 'forgot-password' || segments[0] === 'reset-password';
 
+    console.log('[AuthContext] Routing check:', { isAuthenticated, roles, inAdminGroup, inTabsGroup, segment: segments[0] });
+
     if (segments[0] === 'reset-password') return; // Ne jamais rediriger depuis reset-password
 
     if (!isAuthenticated && !inLogin) {
       router.replace('/login');
-    } else if (isAuthenticated && role === 'admin' && !inAdminGroup) {
-      router.replace('/(admin)');
-    } else if (isAuthenticated && role === 'driver' && !inTabsGroup) {
-      router.replace('/(tabs)');
-    } else if (isAuthenticated && role === null) {
-      // Profil chargé mais rôle inconnu → retour login
+    } else if (isAuthenticated && roles.length === 0) {
+      // Profil chargé mais pas de rôles → retour login
       router.replace('/login');
+    } else if (isAuthenticated && roles.includes('driver')) {
+      // Si driver est dans les rôles, TOUJOURS afficher (tabs), peu importe où on est
+      if (!inTabsGroup) {
+        console.log('[AuthContext] Redirection vers /(tabs) car driver détecté');
+        router.replace('/(tabs)');
+      }
+    } else if (isAuthenticated && roles.includes('admin')) {
+      // Si SEULEMENT admin (pas driver), afficher (admin)
+      if (!inAdminGroup) {
+        console.log('[AuthContext] Redirection vers /(admin)');
+        router.replace('/(admin)');
+      }
     }
-  }, [session, role, profileLoaded, segments]);
+  }, [session, roles, profileLoaded, segments]);
 
   const login = async (email: string, password: string): Promise<{ error?: string }> => {
     setProfileLoaded(false);
@@ -127,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Si besoin, on force un upsert pour s'assurer que le prénom est bien là
     if (data.user) {
       await supabase.from('profiles').upsert(
-        { id: data.user.id, email, prenom, role: 'driver' },
+        { id: data.user.id, email, prenom, role: 'driver', roles: ['driver'] },
         { onConflict: 'id' }
       );
     }
@@ -142,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSession(null);
       setRole(null);
+      setRoles([]);
       setPrenom('');
       setProfileLoaded(true);
       router.replace('/login');
@@ -155,6 +198,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       user: session?.user ?? null,
       role,
+      roles,
+      isAdmin: roles.includes('admin'),
+      isDriver: roles.includes('driver'),
       prenom,
       login,
       signup,
