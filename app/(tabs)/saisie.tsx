@@ -122,10 +122,22 @@ export default function SaisieScreen() {
   const routeReversed = routeVehiculesResult?.reversed ?? false;
   const baseVehiculeNames = routeVehiculesResult?.baseVehiculeNames ?? new Set();
 
-  const autoVehiculeOption = useMemo(
-    () => baseVehiculeNames.has('2 ROUES EXPRESS') ? (routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null) : null,
-    [routeVehicules, baseVehiculeNames]
-  );
+  const isNightShift = useMemo(() => {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    return (h > 21 || (h === 21 && m >= 30)) || h < 6;
+  }, [form.lieuEnlevement, form.lieuLivraison]);
+
+  const autoVehiculeOption = useMemo(() => {
+    if (isNightShift) {
+      const nuit = routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === 'NUIT');
+      if (nuit) return nuit;
+    }
+    return baseVehiculeNames.has('2 ROUES EXPRESS')
+      ? (routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null)
+      : null;
+  }, [routeVehicules, baseVehiculeNames, isNightShift]);
 
   // true si le lieu d'enlèvement en cours de saisie est déjà celui d'une
   // course du lot (2ème+ ramassage au même endroit dans la même tournée).
@@ -246,9 +258,7 @@ export default function SaisieScreen() {
   const autoVehiculeKey = autoVehiculeOption ? `${autoVehiculeOption.vehicule}|${autoVehiculeOption.qteBon}` : '';
 
   useEffect(() => {
-    // Priorité : si "2 ROUES EXPRESS" existe pour ce trajet et qu'aucun type
-    // n'est déjà choisi, on le sélectionne automatiquement avec son tarif
-    // précis — plus fiable qu'un tarif agrégé tous types confondus.
+    // Auto-sélection : NUIT entre 21h30-6h00, sinon 2 ROUES EXPRESS
     if (autoVehiculeOption && !form.vehicule) {
       const montantAchat = computeMontant(autoVehiculeOption.qteBon, prixBon);
       setForm((f) => (f.vehicule ? f : { ...f, vehicule: autoVehiculeOption.vehicule, qteBon: autoVehiculeOption.qteBon, montantAchat }));
