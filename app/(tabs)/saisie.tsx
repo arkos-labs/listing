@@ -107,25 +107,22 @@ export default function SaisieScreen() {
     if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return null;
     const result = listVehiculesForRouteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
     if (result && result.options.length > 0) {
-      return result;
+      return { ...result, fromBase: true };
     }
-    // Si la course n'est pas dans la base, on propose tous les types standards
     return {
       options: CANONICAL_VEHICULES.map(v => ({ vehicule: v, qteBon: 0 })),
       reversed: false,
+      fromBase: false,
     };
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison]);
 
   const routeVehicules = routeVehiculesResult?.options ?? [];
   const routeReversed = routeVehiculesResult?.reversed ?? false;
+  const routeFromBase = routeVehiculesResult?.fromBase ?? false;
 
-  // "2 ROUES EXPRESS" est le type le plus courant : s'il existe pour ce
-  // trajet, on le sélectionne automatiquement (tarif précis pour CE type,
-  // pas une moyenne tous types confondus) au lieu d'attendre que le
-  // chauffeur clique sur la chip à chaque course.
   const autoVehiculeOption = useMemo(
-    () => routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null,
-    [routeVehicules]
+    () => routeFromBase ? (routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null) : null,
+    [routeVehicules, routeFromBase]
   );
 
   // true si le lieu d'enlèvement en cours de saisie est déjà celui d'une
@@ -678,11 +675,6 @@ export default function SaisieScreen() {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {routeVehicules.map((rv) => {
-              // Le tarif ENVOYÉ reste toujours le tarif plein (rv.qteBon) —
-              // c'est calculerTournee qui décide de l'optimisation en
-              // fonction de la position réelle dans le lot. Seul l'AFFICHAGE
-              // du chip montre au chauffeur le tarif qu'il obtiendra
-              // vraiment si ce trajet est déjà un ramassage précédent du lot.
               const preview = isRepeatPickup
                 ? previewOptimizedQte(rv.qteBon, form.lieuEnlevement, form.lieuLivraison, rv.vehicule, referenceCourses)
                 : null;
@@ -691,10 +683,10 @@ export default function SaisieScreen() {
                 <TouchableOpacity
                   key={rv.vehicule}
                   style={[styles.typeChip, form.vehicule === rv.vehicule && styles.typeChipActive]}
-                  onPress={() => selectRouteVehicule(rv.vehicule, rv.qteBon)}
+                  onPress={() => routeFromBase ? selectRouteVehicule(rv.vehicule, rv.qteBon) : setForm((f) => ({ ...f, vehicule: f.vehicule === rv.vehicule ? '' : rv.vehicule }))}
                 >
                   <Text style={[styles.typeChipText, form.vehicule === rv.vehicule && styles.typeChipTextActive]} numberOfLines={1}>
-                    {rv.vehicule} · {formatQte(displayQte)} bon{displayQte > 1 ? 's' : ''}
+                    {rv.vehicule}{routeFromBase ? ` · ${formatQte(displayQte)} bon${displayQte > 1 ? 's' : ''}` : ''}
                     {preview?.optimise ? ' (2e ramassage)' : ''}
                   </Text>
                 </TouchableOpacity>
