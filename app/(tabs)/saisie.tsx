@@ -111,8 +111,20 @@ export default function SaisieScreen() {
     const fallbackOptions = CANONICAL_VEHICULES
       .filter(v => !baseVehiculeNames.has(v))
       .map(v => ({ vehicule: v, qteBon: 0, count: 0 }));
+    const allOptions = [...baseOptions, ...fallbackOptions];
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const isNight = (h > 21 || (h === 21 && m >= 30)) || h < 6;
+    if (isNight) {
+      allOptions.sort((a, b) => {
+        const aN = canonicalizeVehicule(a.vehicule) === 'NUIT' ? 0 : 1;
+        const bN = canonicalizeVehicule(b.vehicule) === 'NUIT' ? 0 : 1;
+        return aN - bN;
+      });
+    }
     return {
-      options: [...baseOptions, ...fallbackOptions],
+      options: allOptions,
       reversed: result?.reversed ?? false,
       baseVehiculeNames,
     };
