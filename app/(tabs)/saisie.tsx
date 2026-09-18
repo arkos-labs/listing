@@ -106,23 +106,25 @@ export default function SaisieScreen() {
   const routeVehiculesResult = useMemo(() => {
     if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return null;
     const result = listVehiculesForRouteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
-    if (result && result.options.length > 0) {
-      return { ...result, fromBase: true };
-    }
+    const baseOptions = result?.options ?? [];
+    const baseVehiculeNames = new Set(baseOptions.map(o => canonicalizeVehicule(o.vehicule)).filter(Boolean));
+    const fallbackOptions = CANONICAL_VEHICULES
+      .filter(v => !baseVehiculeNames.has(v))
+      .map(v => ({ vehicule: v, qteBon: 0, count: 0 }));
     return {
-      options: CANONICAL_VEHICULES.map(v => ({ vehicule: v, qteBon: 0 })),
-      reversed: false,
-      fromBase: false,
+      options: [...baseOptions, ...fallbackOptions],
+      reversed: result?.reversed ?? false,
+      baseVehiculeNames,
     };
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison]);
 
   const routeVehicules = routeVehiculesResult?.options ?? [];
   const routeReversed = routeVehiculesResult?.reversed ?? false;
-  const routeFromBase = routeVehiculesResult?.fromBase ?? false;
+  const baseVehiculeNames = routeVehiculesResult?.baseVehiculeNames ?? new Set();
 
   const autoVehiculeOption = useMemo(
-    () => routeFromBase ? (routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null) : null,
-    [routeVehicules, routeFromBase]
+    () => baseVehiculeNames.has('2 ROUES EXPRESS') ? (routeVehicules.find((o) => canonicalizeVehicule(o.vehicule) === '2 ROUES EXPRESS') ?? null) : null,
+    [routeVehicules, baseVehiculeNames]
   );
 
   // true si le lieu d'enlèvement en cours de saisie est déjà celui d'une
@@ -683,10 +685,17 @@ export default function SaisieScreen() {
                 <TouchableOpacity
                   key={rv.vehicule}
                   style={[styles.typeChip, form.vehicule === rv.vehicule && styles.typeChipActive]}
-                  onPress={() => routeFromBase ? selectRouteVehicule(rv.vehicule, rv.qteBon) : setForm((f) => ({ ...f, vehicule: f.vehicule === rv.vehicule ? '' : rv.vehicule }))}
+                  onPress={() => {
+                    const isFromBase = baseVehiculeNames.has(canonicalizeVehicule(rv.vehicule) ?? '');
+                    if (isFromBase) {
+                      selectRouteVehicule(rv.vehicule, rv.qteBon);
+                    } else {
+                      setForm((f) => ({ ...f, vehicule: f.vehicule === rv.vehicule ? '' : rv.vehicule }));
+                    }
+                  }}
                 >
                   <Text style={[styles.typeChipText, form.vehicule === rv.vehicule && styles.typeChipTextActive]} numberOfLines={1}>
-                    {rv.vehicule}{routeFromBase ? ` · ${formatQte(displayQte)} bon${displayQte > 1 ? 's' : ''}` : ''}
+                    {rv.vehicule}{rv.qteBon > 0 ? ` · ${formatQte(displayQte)} bon${displayQte > 1 ? 's' : ''}` : ''}
                     {preview?.optimise ? ' (2e ramassage)' : ''}
                   </Text>
                 </TouchableOpacity>
