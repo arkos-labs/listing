@@ -690,7 +690,12 @@ export default function SaisieScreen() {
                     if (isFromBase) {
                       selectRouteVehicule(rv.vehicule, rv.qteBon);
                     } else {
-                      setForm((f) => ({ ...f, vehicule: f.vehicule === rv.vehicule ? '' : rv.vehicule }));
+                      const toggled = f => f.vehicule === rv.vehicule;
+                      setForm((f) => toggled(f)
+                        ? { ...f, vehicule: '', qteBon: 0, montantAchat: 0 }
+                        : { ...f, vehicule: rv.vehicule, qteBon: 0, montantAchat: 0 });
+                      setQteBonSuggere(null);
+                      setAutoFromBase(false);
                     }
                   }}
                 >
