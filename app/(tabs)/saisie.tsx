@@ -17,7 +17,7 @@ import {
   RouteVehiculeOption,
 } from '@/lib/reference';
 import { formatQte, formatEuro } from '@/lib/kpi';
-import { canonicalizeVehicule } from '@/lib/vehicule';
+import { canonicalizeVehicule, CANONICAL_VEHICULES } from '@/lib/vehicule';
 import { computeMontant } from '@/lib/pricing';
 import { generateMotivationMessage } from '@/lib/motivation';
 import { recordCourseAdded, getUserHabits } from '@/lib/learningEngine';
@@ -105,7 +105,15 @@ export default function SaisieScreen() {
   // Types de course disponibles — cherche dans les deux sens (A→B puis B→A)
   const routeVehiculesResult = useMemo(() => {
     if (form.lieuEnlevement.trim().length < 3 || form.lieuLivraison.trim().length < 3) return null;
-    return listVehiculesForRouteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
+    const result = listVehiculesForRouteBidirectional(referenceCourses, form.lieuEnlevement, form.lieuLivraison);
+    if (result && result.options.length > 0) {
+      return result;
+    }
+    // Si la course n'est pas dans la base, on propose tous les types standards
+    return {
+      options: CANONICAL_VEHICULES.map(v => ({ vehicule: v, qteBon: 0 })),
+      reversed: false,
+    };
   }, [referenceCourses, form.lieuEnlevement, form.lieuLivraison]);
 
   const routeVehicules = routeVehiculesResult?.options ?? [];
@@ -171,10 +179,15 @@ export default function SaisieScreen() {
   const removeBatchItem = (id: string) => setBatch(b => b.filter(c => c.id !== id));
 
   const selectRouteVehicule = (vehicule: string, qteBon: number) => {
-    const montantAchat = computeMontant(qteBon, prixBon);
-    setForm((f) => ({ ...f, vehicule: f.vehicule === vehicule ? '' : vehicule, qteBon: f.vehicule === vehicule ? 0 : qteBon, montantAchat: f.vehicule === vehicule ? 0 : montantAchat }));
-    setQteBonSuggere(qteBon);
-    setAutoFromBase(true);
+    setForm((f) => {
+      const isUnselecting = f.vehicule === vehicule;
+      const newVehicule = isUnselecting ? '' : vehicule;
+      const newQteBon = isUnselecting ? 0 : (qteBon > 0 ? qteBon : f.qteBon);
+      const montantAchat = computeMontant(newQteBon, prixBon);
+      return { ...f, vehicule: newVehicule, qteBon: newQteBon, montantAchat };
+    });
+    setQteBonSuggere(qteBon > 0 ? qteBon : null);
+    setAutoFromBase(qteBon > 0);
   };
   const selectPickup = (value: string) => { setForm((f) => ({ ...f, lieuEnlevement: value, vehicule: '' })); setPickupOpen(false); refLivraison.current?.focus(); };
   const selectDelivery = (value: string) => { setForm((f) => ({ ...f, lieuLivraison: value, vehicule: '' })); setDeliveryOpen(false); };

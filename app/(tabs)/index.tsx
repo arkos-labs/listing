@@ -517,7 +517,7 @@ export default function DashboardScreen() {
               style={styles.tileInput}
               value={fuelInput}
               onChangeText={setFuelInput}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder="€"
               placeholderTextColor={colors.textFaint}
               onSubmitEditing={submitFuel}
@@ -544,7 +544,7 @@ export default function DashboardScreen() {
               style={styles.tileInput}
               value={kmInput}
               onChangeText={setKmInput}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder="km"
               placeholderTextColor={colors.textFaint}
               onSubmitEditing={submitKm}

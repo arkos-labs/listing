@@ -11,7 +11,7 @@ import { normalize } from '@/lib/text';
 export const CANONICAL_VEHICULES = [
   '2 ROUES EXPRESS',
   '2 ROUES URGENCE VITALE',
-  '2 ROUES NORMAL',
+
   '2 ROUES PROGRAMME',
   '2 ROUES ALLER-RETOUR',
   'SUIVEUSE',
@@ -36,6 +36,6 @@ export function canonicalizeVehicule(raw: string | undefined | null): CanonicalV
   if (/aller|retour|a\/r/.test(n)) return '2 ROUES ALLER-RETOUR';
   if (/programme?/.test(n)) return '2 ROUES PROGRAMME';
   if (/express/.test(n)) return '2 ROUES EXPRESS';
-  if (/normal/.test(n)) return '2 ROUES NORMAL';
+  if (/normal/.test(n)) return '2 ROUES EXPRESS';
   return null;
 }
