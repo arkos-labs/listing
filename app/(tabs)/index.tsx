@@ -20,7 +20,7 @@ import { parsePdfFile } from '@/lib/pdfImport';
 import { formatEuro, formatQte } from '@/lib/kpi';
 import { computeWorkTotals, formatDuration } from '@/lib/worktime';
 import { radius, shadow, heroShadow } from '@/lib/theme';
-import { Moon, Sun, Clock, Fuel, TrendingUp, FlaskConical, PenLine, Eye, EyeOff, Upload, MessageSquare } from 'lucide-react-native';
+import { Moon, Sun, Clock, Fuel, TrendingUp, FlaskConical, PenLine, Eye, EyeOff, Upload, MessageSquare, AlertTriangle } from 'lucide-react-native';
 import { detectDomaine } from '@/lib/domaine';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -41,7 +41,7 @@ export default function DashboardScreen() {
   const { totals: kmTotals, add: addKm } = useKm();
   const { isDark, colors, toggleTheme } = useTheme();
   const { importFiles } = useReference();
-  const { prenom, user } = useAuth();
+  const { prenom, user, isDriver, lastListingImportAt, refreshLastListingImportAt } = useAuth();
   const [unreadMsgs, setUnreadMsgs] = useState<{ prenom: string; content: string }[]>([]);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const userEmailRef = useRef<string | null>(null);
@@ -285,7 +285,8 @@ export default function DashboardScreen() {
       const filesToUpload = res.assets.map(a => ({ name: a.name ?? 'fichier inconnu', uri: a.uri }));
       const result = await importFiles(allInputs, filesToUpload);
       setImportMsg(formatImportResult(result));
-      
+      refreshLastListingImportAt();
+
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
@@ -316,6 +317,12 @@ export default function DashboardScreen() {
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
   const dateLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  // Alerte listing pas à jour : indispensable pour calculer les courses.
+  const joursDepuisListing = lastListingImportAt
+    ? Math.floor((now.getTime() - new Date(lastListingImportAt).getTime()) / (24 * 60 * 60 * 1000))
+    : null;
+  const listingObsolete = isDriver && (joursDepuisListing === null || joursDepuisListing >= 21);
+
   // Message de motivation basé sur le KPI du jour
   const motivMsg = kpi.coursesJour > 0 ? generateMotivationMessage({
     prenom: prenom || '',
@@ -337,10 +344,30 @@ export default function DashboardScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
+      {/* ── ALERTE LISTING PAS À JOUR — fixée en haut ── */}
+      {listingObsolete && (
+        <TouchableOpacity
+          style={{ backgroundColor: '#B45309', marginHorizontal: 16, marginTop: 52, marginBottom: 4, borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10, shadowColor: '#92400E', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
+          onPress={pickAndImport}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={18} color="#fff" strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>Listing pas à jour</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }} numberOfLines={2}>
+              {joursDepuisListing === null
+                ? "Tu n'as jamais envoyé ton listing — indispensable pour calculer tes courses."
+                : `Aucun listing envoyé depuis ${joursDepuisListing} jours — indispensable pour calculer tes courses.`}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* ── NOTIFICATION MESSAGES — fixée en haut ── */}
       {unreadMsgs.length > 0 && (
         <TouchableOpacity
-          style={{ backgroundColor: '#1A6137', marginHorizontal: 16, marginTop: 52, marginBottom: 4, borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10, shadowColor: '#0F4D2C', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
+          style={{ backgroundColor: '#1A6137', marginHorizontal: 16, marginTop: listingObsolete ? 4 : 52, marginBottom: 4, borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 10, shadowColor: '#0F4D2C', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 }}
           onPress={() => router.push('/(tabs)/support')}
         >
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>

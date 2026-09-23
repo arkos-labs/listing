@@ -13,6 +13,8 @@ interface AuthContextValue {
   prenom: string;
   isAdmin: boolean;
   isDriver: boolean;
+  lastListingImportAt: string | null;
+  refreshLastListingImportAt: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, prenom: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [prenom, setPrenom] = useState('');
+  const [lastListingImportAt, setLastListingImportAt] = useState<string | null>(null);
   const segments = useSegments();
   const router = useRouter();
   const loadingRef = useRef(false);
@@ -36,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('role, roles, prenom')
+        .select('role, roles, prenom, last_listing_import_at')
         .eq('id', userId)
         .single();
 
@@ -67,16 +70,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const mainRole = filteredRoles.includes('driver') ? 'driver' : (filteredRoles[0] as UserRole);
         setRole(mainRole);
         setPrenom(data.prenom ?? '');
+        setLastListingImportAt(data.last_listing_import_at ?? null);
         console.log('[AuthContext] Profil chargé:', { email: data.email, rolesRaw: data.roles, roles: filteredRoles, role: mainRole });
       } else {
         console.warn('[AuthContext] Profil introuvable pour', userId, error?.message);
         setRole(null);
         setRoles([]);
+        setLastListingImportAt(null);
       }
     } catch (e) {
       console.error('[AuthContext] Erreur loadProfile:', e);
       setRole(null);
       setRoles([]);
+      setLastListingImportAt(null);
     } finally {
       setProfileLoaded(true);
       loadingRef.current = false;
@@ -102,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole(null);
         setRoles([]);
         setPrenom('');
+        setLastListingImportAt(null);
         setProfileLoaded(true);
       }
     });
@@ -176,6 +183,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   };
 
+  const refreshLastListingImportAt = async () => {
+    if (!session?.user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('last_listing_import_at')
+      .eq('id', session.user.id)
+      .single();
+    setLastListingImportAt(data?.last_listing_import_at ?? null);
+  };
+
   const logout = async () => {
     try {
       await supabase.auth.signOut();
@@ -186,6 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRole(null);
       setRoles([]);
       setPrenom('');
+      setLastListingImportAt(null);
       setProfileLoaded(true);
       router.replace('/login');
     }
@@ -201,6 +219,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       roles,
       isAdmin: roles.includes('admin'),
       isDriver: roles.includes('driver'),
+      lastListingImportAt,
+      refreshLastListingImportAt,
       prenom,
       login,
       signup,
