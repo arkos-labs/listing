@@ -171,15 +171,6 @@ export default function SaisieScreen() {
 
   const resultatLot = useMemo(() => calculerTournee(lotComplet, prixBon, referenceCourses), [lotComplet, prixBon, referenceCourses]);
 
-  // Contribution RÉELLE (après optimisation) de la course en cours de saisie
-  // au total du lot — à ne pas confondre avec form.qteBon qui est le tarif
-  // plein/base saisi. Si ce 2ème+ ramassage est réduit, ce nombre reflète
-  // ce qui sera effectivement compté, pas ce qui a été tapé/sélectionné.
-  const courantDansLot = form.lieuLivraison.trim().length > 0 && form.qteBon > 0;
-  const qteCetteCourse = courantDansLot
-    ? resultatLot.courses[resultatLot.courses.length - 1]?.qteBonOptimise ?? form.qteBon
-    : form.qteBon;
-
   const addToBatch = () => {
     if (!form.lieuEnlevement.trim() || !form.lieuLivraison.trim() || form.qteBon <= 0) return;
     // Anti-doublon : ignore un second appel survenant moins de 600ms après le
@@ -289,6 +280,23 @@ export default function SaisieScreen() {
   }, [form.qteBon, prixBon]);
 
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
+
+  // Saisie libre du nombre de bons (en plus des boutons +/- et des presets).
+  // qteInputSelfUpdate évite que la resynchro depuis form.qteBon n'écrase le
+  // texte en cours de frappe (ex. la virgule tapée pour "2,5").
+  const [qteInput, setQteInputText] = useState('');
+  const qteInputSelfUpdate = useRef(false);
+  useEffect(() => {
+    if (qteInputSelfUpdate.current) { qteInputSelfUpdate.current = false; return; }
+    setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '');
+  }, [form.qteBon]);
+  const onChangeQteInput = (text: string) => {
+    setQteInputText(text);
+    const n = parseFloat(text.replace(',', '.'));
+    qteInputSelfUpdate.current = true;
+    setAutoFromBase(false);
+    setForm((f) => ({ ...f, qteBon: isNaN(n) ? 0 : Math.max(0, n) }));
+  };
 
   type FareRoute = { enl: string; liv: string; veh: string };
 
@@ -774,9 +782,19 @@ export default function SaisieScreen() {
             <Minus size={28} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.stepperCenter}>
-            <Text style={styles.stepperValue}>{formatQte(resultatLot.totalBonsOptimise)}</Text>
+            <TextInput
+              style={styles.stepperValue}
+              value={qteInput}
+              onChangeText={onChangeQteInput}
+              onBlur={() => setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '')}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor={colors.textFaint}
+              selectTextOnFocus
+              textAlign="center"
+            />
             {batch.length > 0 && form.qteBon > 0 ? (
-              <Text style={styles.stepperSub}>dont {formatQte(qteCetteCourse)} cette course</Text>
+              <Text style={styles.stepperSub}>Total tournée : {formatQte(resultatLot.totalBonsOptimise)} bons</Text>
             ) : autoFromBase ? (
               <View style={styles.autoHint}>
                 {exactMatch?.reversed
@@ -1018,7 +1036,7 @@ function makeStyles(colors: any, isDark: boolean) {
       justifyContent: 'center',
     },
     stepperCenter: { alignItems: 'center', flex: 1 },
-    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2 },
+    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, minWidth: 80, outlineWidth: 0 } as any,
     stepperSub: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 2 },
     autoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
     autoHintText: { fontSize: 11, fontWeight: '700', color: colors.green },
