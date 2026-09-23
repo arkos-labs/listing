@@ -26,7 +26,7 @@ import { normalize } from '@/lib/text';
 import { radius, shadow, shadowMd } from '@/lib/theme';
 import { detectDomaine } from '@/lib/domaine';
 import type { CourseInput } from '@/types/course';
-import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star, ArrowUpDown } from 'lucide-react-native';
+import { Check, Minus, Plus, Sparkles, MapPin, Navigation, ArrowRight, AlertTriangle, X, ArrowLeftRight, Star, ArrowUpDown, PenLine } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 const PRESETS = [1, 2, 2.5, 3, 5, 8];
@@ -72,6 +72,7 @@ export default function SaisieScreen() {
 
   const refLivraison = useRef<TextInput>(null);
   const refEnlevement = useRef<TextInput>(null);
+  const refQteBon = useRef<TextInput>(null);
   const pickupBlurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deliveryBlurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -782,17 +783,23 @@ export default function SaisieScreen() {
             <Minus size={28} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.stepperCenter}>
-            <TextInput
-              style={styles.stepperValue}
-              value={qteInput}
-              onChangeText={onChangeQteInput}
-              onBlur={() => setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '')}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              placeholderTextColor={colors.textFaint}
-              selectTextOnFocus
-              textAlign="center"
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TextInput
+                ref={refQteBon}
+                style={styles.stepperValue}
+                value={qteInput}
+                onChangeText={onChangeQteInput}
+                onBlur={() => setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '')}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={colors.textFaint}
+                selectTextOnFocus
+                textAlign="center"
+              />
+              <TouchableOpacity style={styles.qteEditBtn} onPress={() => refQteBon.current?.focus()}>
+                <PenLine size={16} color={colors.textMuted} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
             {batch.length > 0 && form.qteBon > 0 ? (
               <Text style={styles.stepperSub}>Total tournée : {formatQte(resultatLot.totalBonsOptimise)} bons</Text>
             ) : autoFromBase ? (
@@ -1037,6 +1044,7 @@ function makeStyles(colors: any, isDark: boolean) {
     },
     stepperCenter: { alignItems: 'center', flex: 1 },
     stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, minWidth: 80, outlineWidth: 0 } as any,
+    qteEditBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     stepperSub: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 2 },
     autoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
     autoHintText: { fontSize: 11, fontWeight: '700', color: colors.green },
