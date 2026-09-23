@@ -283,21 +283,21 @@ export default function SaisieScreen() {
   const setQte = (n: number) => { setAutoFromBase(false); setForm((f) => ({ ...f, qteBon: Math.max(0, n) })); };
 
   // Saisie libre du nombre de bons (en plus des boutons +/- et des presets).
-  // qteInputSelfUpdate évite que la resynchro depuis form.qteBon n'écrase le
-  // texte en cours de frappe (ex. la virgule tapée pour "2,5").
+  // Au repos le chiffre reste un Text (identique à l'original, toujours bien
+  // visible) ; le crayon bascule vers un TextInput le temps de la frappe.
+  const [editingQte, setEditingQte] = useState(false);
   const [qteInput, setQteInputText] = useState('0');
-  const qteInputSelfUpdate = useRef(false);
-  useEffect(() => {
-    if (qteInputSelfUpdate.current) { qteInputSelfUpdate.current = false; return; }
-    setQteInputText(formatQte(form.qteBon));
-  }, [form.qteBon]);
+  const openQteEdit = () => { setQteInputText(formatQte(form.qteBon)); setEditingQte(true); };
+  const closeQteEdit = () => setEditingQte(false);
   const onChangeQteInput = (text: string) => {
     setQteInputText(text);
     const n = parseFloat(text.replace(',', '.'));
-    qteInputSelfUpdate.current = true;
     setAutoFromBase(false);
     setForm((f) => ({ ...f, qteBon: isNaN(n) ? 0 : Math.max(0, n) }));
   };
+  useEffect(() => {
+    if (editingQte) refQteBon.current?.focus();
+  }, [editingQte]);
 
   type FareRoute = { enl: string; liv: string; veh: string };
 
@@ -783,20 +783,24 @@ export default function SaisieScreen() {
             <Minus size={28} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.stepperCenter}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', flexGrow: 0, flexShrink: 0 }}>
-              <TextInput
-                ref={refQteBon}
-                style={[styles.stepperValue, { flexGrow: 0, flexShrink: 0 }]}
-                value={qteInput}
-                onChangeText={onChangeQteInput}
-                onBlur={() => setQteInputText(formatQte(form.qteBon))}
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={colors.textFaint}
-                selectTextOnFocus
-                textAlign="center"
-              />
-              <TouchableOpacity style={styles.qteEditBtn} onPress={() => refQteBon.current?.focus()}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center' }}>
+              {editingQte ? (
+                <TextInput
+                  ref={refQteBon}
+                  style={[styles.stepperValue, { width: 120 }]}
+                  value={qteInput}
+                  onChangeText={onChangeQteInput}
+                  onBlur={closeQteEdit}
+                  onSubmitEditing={closeQteEdit}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  selectTextOnFocus
+                  textAlign="center"
+                />
+              ) : (
+                <Text style={styles.stepperValue}>{formatQte(form.qteBon)}</Text>
+              )}
+              <TouchableOpacity style={styles.qteEditBtn} onPress={openQteEdit}>
                 <PenLine size={18} color={colors.green} strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
@@ -1043,7 +1047,7 @@ function makeStyles(colors: any, isDark: boolean) {
       justifyContent: 'center',
     },
     stepperCenter: { alignItems: 'center', flex: 1 },
-    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, width: 110, borderWidth: 0, outlineWidth: 0, outlineStyle: 'none' } as any,
+    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, borderWidth: 0, outlineWidth: 0, outlineStyle: 'none' } as any,
     qteEditBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
     stepperSub: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 2 },
     autoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
