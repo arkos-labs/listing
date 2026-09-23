@@ -783,10 +783,10 @@ export default function SaisieScreen() {
             <Minus size={28} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.stepperCenter}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', flexGrow: 0, flexShrink: 0 }}>
               <TextInput
                 ref={refQteBon}
-                style={styles.stepperValue}
+                style={[styles.stepperValue, { flexGrow: 0, flexShrink: 0 }]}
                 value={qteInput}
                 onChangeText={onChangeQteInput}
                 onBlur={() => setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '')}
@@ -797,7 +797,7 @@ export default function SaisieScreen() {
                 textAlign="center"
               />
               <TouchableOpacity style={styles.qteEditBtn} onPress={() => refQteBon.current?.focus()}>
-                <PenLine size={16} color={colors.textMuted} strokeWidth={2.5} />
+                <PenLine size={18} color={colors.green} strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
             {batch.length > 0 && form.qteBon > 0 ? (
@@ -1043,8 +1043,8 @@ function makeStyles(colors: any, isDark: boolean) {
       justifyContent: 'center',
     },
     stepperCenter: { alignItems: 'center', flex: 1 },
-    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, minWidth: 80, outlineWidth: 0 } as any,
-    qteEditBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+    stepperValue: { fontSize: 52, fontWeight: '900', color: colors.text, letterSpacing: -2, padding: 0, width: 110, borderWidth: 0, outlineWidth: 0, outlineStyle: 'none' } as any,
+    qteEditBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center' },
     stepperSub: { fontSize: 11, fontWeight: '600', color: colors.textMuted, marginTop: 2 },
     autoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
     autoHintText: { fontSize: 11, fontWeight: '700', color: colors.green },
