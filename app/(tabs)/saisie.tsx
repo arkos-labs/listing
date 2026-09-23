@@ -285,11 +285,11 @@ export default function SaisieScreen() {
   // Saisie libre du nombre de bons (en plus des boutons +/- et des presets).
   // qteInputSelfUpdate évite que la resynchro depuis form.qteBon n'écrase le
   // texte en cours de frappe (ex. la virgule tapée pour "2,5").
-  const [qteInput, setQteInputText] = useState('');
+  const [qteInput, setQteInputText] = useState('0');
   const qteInputSelfUpdate = useRef(false);
   useEffect(() => {
     if (qteInputSelfUpdate.current) { qteInputSelfUpdate.current = false; return; }
-    setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '');
+    setQteInputText(formatQte(form.qteBon));
   }, [form.qteBon]);
   const onChangeQteInput = (text: string) => {
     setQteInputText(text);
@@ -789,7 +789,7 @@ export default function SaisieScreen() {
                 style={[styles.stepperValue, { flexGrow: 0, flexShrink: 0 }]}
                 value={qteInput}
                 onChangeText={onChangeQteInput}
-                onBlur={() => setQteInputText(form.qteBon > 0 ? formatQte(form.qteBon) : '')}
+                onBlur={() => setQteInputText(formatQte(form.qteBon))}
                 keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textFaint}
