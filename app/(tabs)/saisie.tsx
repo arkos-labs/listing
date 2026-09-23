@@ -378,9 +378,10 @@ export default function SaisieScreen() {
 
       const savedIds: string[] = [];
       for (const c of resultatLot.courses) {
-        // Si le chauffeur a modifié, on enregistre quand même avec le tarif de la base (pas sa modification)
-        // L'admin recevra un message et pourra corriger si besoin
-        const qteBonToSave = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+        // Le chiffre enregistré est toujours celui saisi par le chauffeur.
+        // Si ça diffère du tarif base, l'admin reçoit un signal pour info,
+        // mais la course garde le montant que le chauffeur a réellement tapé.
+        const qteBonToSave = c.qteBonOptimise;
         const montantToSave = computeMontant(qteBonToSave, prixBon);
         const id = await add({
           lieuEnlevement: c.lieuEnlevement,
@@ -394,9 +395,7 @@ export default function SaisieScreen() {
         if (id) savedIds.push(id);
       }
       // Calcul du total de bons ajoutés dans cette session
-      const totalBonsAjoutes = chauffeurAModifie
-        ? qteBonSuggere! * resultatLot.courses.length
-        : resultatLot.totalBonsOptimise;
+      const totalBonsAjoutes = resultatLot.totalBonsOptimise;
       setBatch([]);
       setForm({ lieuEnlevement: '', lieuLivraison: '', qteBon: 0, montantAchat: 0, vehicule: '' });
       setAutoFromBase(false);
@@ -427,11 +426,9 @@ export default function SaisieScreen() {
       });
       showMotivation(msg);
 
-      const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(
-        chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise, prixBon
-      ), 0);
+      const totalMontant = resultatLot.courses.reduce((s, c) => s + computeMontant(c.qteBonOptimise, prixBon), 0);
       const detailsCourses = resultatLot.courses.map((c) => {
-        const qte = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+        const qte = c.qteBonOptimise;
         return `${c.lieuEnlevement} → ${c.lieuLivraison} (${qte} bons · ${formatEuro(computeMontant(qte, prixBon))})`;
       }).join('\n');
 
@@ -448,7 +445,7 @@ export default function SaisieScreen() {
             if (u) {
               const nom = prenom || u.email || 'Chauffeur';
               const coursesData = horsBase.map(({ c }) => {
-                const qte = chauffeurAModifie ? qteBonSuggere! : c.qteBonOptimise;
+                const qte = c.qteBonOptimise;
                 return { enl: c.lieuEnlevement, liv: c.lieuLivraison, veh: c.vehicule || '', qteBon: qte, montant: computeMontant(qte, prixBon) };
               });
               const ids = horsBase.map(({ id }) => id).filter((id): id is string => !!id);
@@ -461,7 +458,8 @@ export default function SaisieScreen() {
       }
 
       if (chauffeurAModifie) {
-        // Le chauffeur a changé la valeur → signal automatique à l'admin, sans demander
+        // Le chauffeur a changé la valeur (déjà enregistrée telle quelle) →
+        // signal automatique à l'admin pour info, sans demander confirmation
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const qteSuggere = qteBonSuggere!;
@@ -469,7 +467,7 @@ export default function SaisieScreen() {
           const montantSuggereDB = computeMontant(qteSuggere, prixBon);
           const montantChauffeur = computeMontant(qteChauffeur, prixBon);
           const nom = prenom || user.email || 'Chauffeur';
-          // Les coursesData montrent le tarif chauffeur (ce qu'il pensait), le message indique le DB tarif
+          // Les coursesData montrent le tarif réellement enregistré (celui du chauffeur)
           const coursesData = resultatLot.courses.map(c => ({
             enl: c.lieuEnlevement, liv: c.lieuLivraison, veh: c.vehicule || '',
             qteBon: qteChauffeur, montant: montantChauffeur,
