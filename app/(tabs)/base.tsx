@@ -194,7 +194,7 @@ export default function BaseScreen() {
           { key: 'courseCourse', label: `🚴 Course (${countCourse})` },
           { key: 'medical', label: `🏥 Médical (${countMedical})` },
           ...(countSuiveuse > 0 ? [{ key: 'suiveuse', label: `🏍 Suiveuse (${countSuiveuse})` }] : []),
-          ...(countNuit > 0 ? [{ key: 'nuit', label: `🌙 Nuit (${countNuit})` }] : []),
+          { key: 'nuit', label: `🌙 Nuit (${countNuit})` },
         ].map((f) => (
           <TouchableOpacity key={f.key} style={[styles.filterChip, domaineFilter === f.key && styles.filterChipActive]} onPress={() => setDomaineFilter(f.key as any)}>
             <Text style={[styles.filterChipText, domaineFilter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
