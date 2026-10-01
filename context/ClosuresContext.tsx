@@ -1,8 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { MonthClosure } from '@/types/closure';
-import { loadClosures, upsertClosure, deleteClosure, loadCourses, loadFuelExpenses, loadMotoExpenses, loadWorkSessions, loadKmEntries } from '@/lib/storage';
+import { loadClosures, upsertClosure, deleteClosure } from '@/lib/storage';
 import { buildMonthClosure, buildCurrentMonthClosure, yearMonthKey } from '@/lib/closure';
 import { scheduleSync } from '@/lib/sync';
+import { useCourses } from '@/context/CoursesContext';
+import { useFuel } from '@/context/FuelContext';
+import { useMoto } from '@/context/MotoContext';
+import { useWork } from '@/context/WorkContext';
+import { useKm } from '@/context/KmContext';
 
 interface ClosuresContextValue {
   closures: MonthClosure[];
@@ -18,6 +23,12 @@ export function ClosuresProvider({ children }: { children: React.ReactNode }) {
   const [closures, setClosures] = useState<MonthClosure[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const { courses, loading: coursesLoading } = useCourses();
+  const { expenses: fuelExpenses, loading: fuelLoading } = useFuel();
+  const { expenses: motoExpenses, loading: motoLoading } = useMoto();
+  const { sessions: workSessions, loading: workLoading } = useWork();
+  const { entries: kmEntries, loading: kmLoading } = useKm();
+
   const refresh = useCallback(async () => {
     try {
       const data = await loadClosures();
@@ -32,31 +43,26 @@ export function ClosuresProvider({ children }: { children: React.ReactNode }) {
    * données mais pas encore de clôture. S'exécute silencieusement.
    */
   const autoClosePastMonths = useCallback(async () => {
+    if (coursesLoading || fuelLoading || motoLoading || workLoading || kmLoading) return;
+
     const now = new Date();
     const currentYM = yearMonthKey(now);
-    const [courses, fuelExpenses, motoExpenses, workSessions, kmEntries, existingClosures] = await Promise.all([
-      loadCourses(),
-      loadFuelExpenses(),
-      loadMotoExpenses(),
-      loadWorkSessions(),
-      loadKmEntries(),
-      loadClosures(),
-    ]);
+    const existingClosures = await loadClosures();
     const closedSet = new Set(existingClosures.map((c) => c.yearMonth));
 
-    // Collecte tous les mois passés ayant des données non clôturées
+    // Collecte tous les mois passés ayant des données
     const pastMonths = new Set<string>();
     for (const c of courses) {
       const ym = yearMonthKey(new Date(c.dateSaisie));
-      if (ym < currentYM && !closedSet.has(ym)) pastMonths.add(ym);
+      if (ym < currentYM) pastMonths.add(ym);
     }
     for (const e of fuelExpenses) {
       const ym = yearMonthKey(new Date(e.date));
-      if (ym < currentYM && !closedSet.has(ym)) pastMonths.add(ym);
+      if (ym < currentYM) pastMonths.add(ym);
     }
     for (const m of motoExpenses) {
       const ym = yearMonthKey(new Date(m.date));
-      if (ym < currentYM && !closedSet.has(ym)) pastMonths.add(ym);
+      if (ym < currentYM) pastMonths.add(ym);
     }
 
     if (pastMonths.size === 0) return;
@@ -67,26 +73,25 @@ export function ClosuresProvider({ children }: { children: React.ReactNode }) {
     }
     await refresh();
     scheduleSync();
+  }, [courses, fuelExpenses, motoExpenses, workSessions, kmEntries, coursesLoading, fuelLoading, motoLoading, workLoading, kmLoading, refresh]);
+
+  useEffect(() => {
+    refresh();
   }, [refresh]);
 
   useEffect(() => {
-    refresh().then(() => autoClosePastMonths());
-  }, [refresh, autoClosePastMonths]);
+    if (!coursesLoading && !fuelLoading && !motoLoading && !workLoading && !kmLoading) {
+      autoClosePastMonths();
+    }
+  }, [coursesLoading, fuelLoading, motoLoading, workLoading, kmLoading, autoClosePastMonths]);
 
   const closeCurrentMonth = useCallback(async () => {
-    const [courses, fuelExpenses, motoExpenses, workSessions, kmEntries] = await Promise.all([
-      loadCourses(),
-      loadFuelExpenses(),
-      loadMotoExpenses(),
-      loadWorkSessions(),
-      loadKmEntries(),
-    ]);
     const input = buildCurrentMonthClosure(courses, fuelExpenses, motoExpenses, workSessions, kmEntries);
     const closure = await upsertClosure(input);
     await refresh();
     scheduleSync();
     return closure;
-  }, [refresh]);
+  }, [courses, fuelExpenses, motoExpenses, workSessions, kmEntries, refresh]);
 
   const remove = useCallback(async (id: string) => {
     await deleteClosure(id);
@@ -106,3 +111,4 @@ export function useClosures() {
   if (!ctx) throw new Error('useClosures must be used within ClosuresProvider');
   return ctx;
 }
+
