@@ -80,21 +80,21 @@ export default function RootLayout() {
               <MaintenanceProvider>
                 <MotoProvider>
                   <ReferenceProvider>
-                    <ListingNotificationsProvider>
-                      <GoalProvider>
+                    <WorkProvider>
+                      <ClosuresProvider>
                         <SyncProvider>
-                          <WorkProvider>
-                            <ClosuresProvider>
+                          <ListingNotificationsProvider>
+                            <GoalProvider>
                               <FavorisProvider>
                                 <Stack screenOptions={{ headerShown: false }} />
                                 <RealtimeToast />
                                 <ListingNotificationBell />
                               </FavorisProvider>
-                            </ClosuresProvider>
-                          </WorkProvider>
+                            </GoalProvider>
+                          </ListingNotificationsProvider>
                         </SyncProvider>
-                      </GoalProvider>
-                    </ListingNotificationsProvider>
+                      </ClosuresProvider>
+                    </WorkProvider>
                   </ReferenceProvider>
                 </MotoProvider>
               </MaintenanceProvider>
